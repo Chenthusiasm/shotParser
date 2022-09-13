@@ -9,12 +9,13 @@ import xlsxwriter
 
 MAG_SPAN_VALUES = (-4, -3, -2, -1, 0, 1, 2, 3, 4)
 MAX_SPAN_SIZE = len(MAG_SPAN_VALUES)
+LSB_TO_G_DIVISOR = 4096
 
 
 # === ENUM =====================================================================
 
 class TableEntry(enum.Enum):
-    Offset = 0,
+    Offset = 0
     Value = 1
 NUM_TABLE_ENTRIES = len(TableEntry)
     
@@ -52,6 +53,35 @@ class RowOffset(enum.Enum):
 NUM_ROW_OFFSETS = len(RowOffset)
 
 
+# === HELPER FUNCTIONS =========================================================
+
+def findThreeAxisMagnitude(x : int, y : int, z : int) -> float:
+    return math.sqrt((x * x) + (y * y) + (z * z))
+
+def convertLsbToG(a : int) -> float:
+    return float(a / LSB_TO_G_DIVISOR)
+
+def convertLsbToG(a : float) -> float:
+    return float(a / LSB_TO_G_DIVISOR)
+
+
+# === CLASSES ==================================================================
+
+class Vector:
+    def __init__(self, x : int, y : int, z: int):
+        self.x: int = x
+        self.y: int = y
+        self.z: int = z
+        self.magnitude: float = findThreeAxisMagnitude(self.x, self.y, self.z)
+        self.xG: float = convertLsbToG(self.x)
+        self.yG: float = convertLsbToG(self.y)
+        self.zG: float = convertLsbToG(self.z)
+        self.magnitudeG: float = convertLsbToG(self.magnitude)
+        
+    def getVectorSum(self) -> int:
+        return abs(self.x) + abs(self.y) + abs(self.z) 
+    
+
 # === DICTIONARIES =============================================================
 
 DATA_HEADER_TABLE = (
@@ -74,23 +104,22 @@ MAG_FIRST_COL_TABLE = (
 
 # === FUNCTIONS ================================================================
 
-def convertLsbToG(x : int) -> float:
-    return float(x / 4096)
-
-
 def writeMagFirstColHeader(ws : xlsxwriter.workbook.Worksheet):
     for entry in MAG_FIRST_COL_TABLE:
         ws.write(entry[TableEntry.Offset.value], MagColOffset.Index.value, entry[TableEntry.Value.value])
         
         
 def writeMagHeader(ws : xlsxwriter.workbook.Worksheet, dataSet : int):
-    print("stub")
+    print('stub')
 
 
 def writeDataHeader(ws : xlsxwriter.workbook.Worksheet):
     for entry in DATA_HEADER_TABLE:
         ws.write(RowOffset.Header.value, entry[TableEntry.Offset.value], entry[TableEntry.Value.value])
-
+        
+        
+def writeData(ws : xlsxwriter.workbook.Worksheet):
+    print('stub')
     
 def process():
     wb = xlsxwriter.Workbook('shotParser.xlsx')
@@ -113,23 +142,21 @@ def process():
             entries = line.split(',')
             type = int(entries[0])
             if (type == 2):
+                
                 row += 1
-                x = int(entries[1])
-                y = int(entries[2])
-                z = int(entries[3])
-                magnitude = math.sqrt(x*x + y*y + z*z)
-                magnitudeG = convertLsbToG(magnitude)
+                vector = Vector(int(entries[1]), int(entries[2]), int(entries[3]))
+                magnitudeG = convertLsbToG(vector.magnitude)
                 ws.write(row, 0, row - 1)
-                ws.write(row, 1, x)
-                ws.write(row, 2, y)
-                ws.write(row, 3, z)
-                ws.write(row, 4, magnitude)
-                ws.write(row, 6, convertLsbToG(x))
-                ws.write(row, 7, convertLsbToG(y))
-                ws.write(row, 8, convertLsbToG(z))
-                ws.write(row, 9, magnitudeG)
-                ws_mag.write(row, mag_col, magnitude)
-                ws_magg.write(row, mag_col, magnitudeG)
+                ws.write(row, 1, vector.x)
+                ws.write(row, 2, vector.y)
+                ws.write(row, 3, vector.z)
+                ws.write(row, 4, vector.magnitude)
+                ws.write(row, 6, vector.xG)
+                ws.write(row, 7, vector.yG)
+                ws.write(row, 8, vector.zG)
+                ws.write(row, 9, vector.magnitudeG)
+                ws_mag.write(row, mag_col, vector.magnitude)
+                ws_magg.write(row, mag_col, vector.magnitudeG)
         mag_col += 1
     wb.close()
 
