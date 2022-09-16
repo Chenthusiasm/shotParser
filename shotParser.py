@@ -3,6 +3,7 @@ import enum
 import glob
 import math
 import os
+import string
 import xlsxwriter
 
 # === GLOBAL CONSTANTS =========================================================
@@ -10,6 +11,8 @@ import xlsxwriter
 MAG_SPAN_VALUES = (-4, -3, -2, -1, 0, 1, 2, 3, 4)
 MAX_SPAN_SIZE = len(MAG_SPAN_VALUES)
 LSB_TO_G_DIVISOR = 4096
+MAX_COL = 1000
+NUM_LETTERS = len(string.ascii_uppercase)
 
 
 # === ENUM =====================================================================
@@ -18,6 +21,7 @@ class TableEntry(enum.Enum):
     Offset = 0
     Value = 1
 NUM_TABLE_ENTRIES = len(TableEntry)
+
     
 class MagColOffset(enum.Enum):
     Index = 0
@@ -30,7 +34,8 @@ class MagRowOffset(enum.Enum):
     Max = 1
     IndexOfMax = 2
     MaxSpan = 3
-    Data = MaxSpan + MAX_SPAN_SIZE
+    HeaderRepeat = MaxSpan + MAX_SPAN_SIZE
+    Data = HeaderRepeat + 1
 NUM_MAG_ROW_OFFSETS = len(MagRowOffset)
 
 
@@ -93,24 +98,57 @@ DATA_HEADER_TABLE = (
     (ColOffset.X_g.value, 'x (g)'),
     (ColOffset.Y_g.value, 'y (g)'),
     (ColOffset.Z_g.value, 'z (g)'),
-    (ColOffset.Mag_g.value, 'mag (g)')
+    (ColOffset.Mag_g.value, 'mag (g)'),
     )
 
 MAG_FIRST_COL_TABLE = (
+    (MagRowOffset.Header.value, 'NAME'),
     (MagRowOffset.Max.value, 'MAX'),
-    (MagRowOffset.IndexOfMax.value, 'MAX[idx]')
+    (MagRowOffset.IndexOfMax.value, '[MAX]'),
+    (MagRowOffset.HeaderRepeat.value, 'NAME'),
     )
 
 
 # === FUNCTIONS ================================================================
 
+def getXlsxColStr(col : int) -> str:
+    pre : int = int(col / NUM_LETTERS)
+    post : int = int(col % NUM_LETTERS)
+    preChar : str = ''
+    if (pre > NUM_LETTERS):
+        pre = NUM_LETTERS
+    if (pre > 0):
+        preChar = string.ascii_uppercase[pre - 1]
+    postChar : str = string.ascii_uppercase[post]
+    return preChar + postChar
+    
+
 def writeMagFirstColHeader(ws : xlsxwriter.workbook.Worksheet):
     for entry in MAG_FIRST_COL_TABLE:
         ws.write(entry[TableEntry.Offset.value], MagColOffset.Index.value, entry[TableEntry.Value.value])
         
+    for i, spanValue in enumerate(MAG_SPAN_VALUES):
+        ws.write(MagRowOffset.MaxSpan.value + i, MagColOffset.Index.value, spanValue)
         
-def writeMagHeader(ws : xlsxwriter.workbook.Worksheet, dataSet : int):
-    print('stub')
+        
+def writeMagHeader(ws : xlsxwriter.workbook.Worksheet, nFile : int, name : str):
+    col : int = MagColOffset.Data.value + nFile
+    colStr : str = getXlsxColStr(col)
+    dataRow : int = MagRowOffset.Data.value
+    firstColStr : str = getXlsxColStr(MagColOffset.Index.value)
+    ws.write(MagRowOffset.Header.value, col, name)
+    ws.write(MagRowOffset.HeaderRepeat.value, col, name)
+    ws.write_formula(MagRowOffset.Max.value, col, '=MAX({0}${1}:{0}${2})'.format(colStr, dataRow + 1, MAX_COL))
+    ws.write_formula(MagRowOffset.IndexOfMax.value, col, '=MATCH({0}${1},{0}${2}:{0}${3},0)'.format(colStr, MagRowOffset.Max.value + 1, dataRow + 1, MAX_COL))
+    for i, spanValue in enumerate(MAG_SPAN_VALUES):
+        row = MagRowOffset.MaxSpan.value + i
+        ws.write_formula(row, col, '=INDEX({0}${1}:{0}${2},{0}${3}+${4}{5})'.format(colStr, dataRow + 1, MAX_COL, MagRowOffset.IndexOfMax.value + 1, firstColStr, row + 1))
+    
+    
+def writeMagData(ws : xlsxwriter.workbook.Worksheet, nFile : int, n : int, mag : float):
+    row : int = MagRowOffset.Data.value + n
+    col : int = MagColOffset.Data.value + nFile
+    ws.write(row, col, mag)
 
 
 def writeDataHeader(ws : xlsxwriter.workbook.Worksheet):
@@ -118,14 +156,26 @@ def writeDataHeader(ws : xlsxwriter.workbook.Worksheet):
         ws.write(RowOffset.Header.value, entry[TableEntry.Offset.value], entry[TableEntry.Value.value])
         
         
-def writeData(ws : xlsxwriter.workbook.Worksheet):
-    print('stub')
+def writeData(ws : xlsxwriter.workbook.Worksheet, n : int, vector : Vector):
+    row : int = RowOffset.Data.value + n
+    ws.write(row, DATA_HEADER_TABLE[0][TableEntry.Offset.value], n)
+    ws.write(row, DATA_HEADER_TABLE[1][TableEntry.Offset.value], vector.x)
+    ws.write(row, DATA_HEADER_TABLE[2][TableEntry.Offset.value], vector.y)
+    ws.write(row, DATA_HEADER_TABLE[3][TableEntry.Offset.value], vector.z)
+    ws.write(row, DATA_HEADER_TABLE[4][TableEntry.Offset.value], vector.magnitude)
+    ws.write(row, DATA_HEADER_TABLE[5][TableEntry.Offset.value], vector.xG)
+    ws.write(row, DATA_HEADER_TABLE[6][TableEntry.Offset.value], vector.yG)
+    ws.write(row, DATA_HEADER_TABLE[7][TableEntry.Offset.value], vector.zG)
+    ws.write(row, DATA_HEADER_TABLE[8][TableEntry.Offset.value], vector.magnitudeG)
+    
     
 def process():
     wb = xlsxwriter.Workbook('shotParser.xlsx')
     ws_mag = wb.add_worksheet("mag")
+    writeMagFirstColHeader(ws_mag)
     ws_magg = wb.add_worksheet("mag (g)")
-    mag_col = 0
+    writeMagFirstColHeader(ws_magg)
+    nFile = 0
     for filename in glob.glob('*.csv'):
         print("processing {0}.".format(filename))
         name = filename.replace(".csv", "")
@@ -133,32 +183,23 @@ def process():
             readLines = file.readlines()
         file.close()
         ws = wb.add_worksheet(name)
-        row = 0
         writeDataHeader(ws)
-        ws_mag.write(row, mag_col, name)
-        ws_magg.write(row, mag_col, name)
+        writeMagHeader(ws_mag, nFile, name)
+        writeMagHeader(ws_magg, nFile, name)
+        nLine = 0
         for line in readLines:
             line = line.strip()
             entries = line.split(',')
             type = int(entries[0])
             if (type == 2):
-                
-                row += 1
                 vector = Vector(int(entries[1]), int(entries[2]), int(entries[3]))
-                magnitudeG = convertLsbToG(vector.magnitude)
-                ws.write(row, 0, row - 1)
-                ws.write(row, 1, vector.x)
-                ws.write(row, 2, vector.y)
-                ws.write(row, 3, vector.z)
-                ws.write(row, 4, vector.magnitude)
-                ws.write(row, 6, vector.xG)
-                ws.write(row, 7, vector.yG)
-                ws.write(row, 8, vector.zG)
-                ws.write(row, 9, vector.magnitudeG)
-                ws_mag.write(row, mag_col, vector.magnitude)
-                ws_magg.write(row, mag_col, vector.magnitudeG)
-        mag_col += 1
+                writeData(ws, nLine, vector)
+                writeMagData(ws_mag, nFile, nLine, vector.magnitude)
+                writeMagData(ws_magg, nFile, nLine, vector.magnitudeG)
+                nLine += 1
+        nFile += 1
     wb.close()
+    
 
 # === MAIN =====================================================================
 
