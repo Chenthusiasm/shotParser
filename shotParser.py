@@ -3,14 +3,15 @@ import enum
 import glob
 import math
 import os
+import shot
 import string
+import typing
 import xlsxwriter
 
 # === GLOBAL CONSTANTS =========================================================
 
 MAG_SPAN_VALUES = (-4, -3, -2, -1, 0, 1, 2, 3, 4)
 MAX_SPAN_SIZE = len(MAG_SPAN_VALUES)
-LSB_TO_G_DIVISOR = 4096
 MAX_COL = 1000
 NUM_LETTERS = len(string.ascii_uppercase)
 
@@ -56,35 +57,6 @@ class RowOffset(enum.Enum):
     Header = 0
     Data = 1
 NUM_ROW_OFFSETS = len(RowOffset)
-
-
-# === HELPER FUNCTIONS =========================================================
-
-def findThreeAxisMagnitude(x : int, y : int, z : int) -> float:
-    return math.sqrt((x * x) + (y * y) + (z * z))
-
-def convertLsbToG(a : int) -> float:
-    return float(a / LSB_TO_G_DIVISOR)
-
-def convertLsbToG(a : float) -> float:
-    return float(a / LSB_TO_G_DIVISOR)
-
-
-# === CLASSES ==================================================================
-
-class Vector:
-    def __init__(self, x : int, y : int, z: int):
-        self.x: int = x
-        self.y: int = y
-        self.z: int = z
-        self.magnitude: float = findThreeAxisMagnitude(self.x, self.y, self.z)
-        self.xG: float = convertLsbToG(self.x)
-        self.yG: float = convertLsbToG(self.y)
-        self.zG: float = convertLsbToG(self.z)
-        self.magnitudeG: float = convertLsbToG(self.magnitude)
-        
-    def getVectorSum(self) -> int:
-        return abs(self.x) + abs(self.y) + abs(self.z) 
     
 
 # === DICTIONARIES =============================================================
@@ -156,17 +128,17 @@ def writeDataHeader(ws : xlsxwriter.workbook.Worksheet):
         ws.write(RowOffset.Header.value, entry[TableEntry.Offset.value], entry[TableEntry.Value.value])
         
         
-def writeData(ws : xlsxwriter.workbook.Worksheet, n : int, vector : Vector):
+def writeData(ws : xlsxwriter.workbook.Worksheet, n : int, v : shot.vector):
     row : int = RowOffset.Data.value + n
     ws.write(row, DATA_HEADER_TABLE[0][TableEntry.Offset.value], n)
-    ws.write(row, DATA_HEADER_TABLE[1][TableEntry.Offset.value], vector.x)
-    ws.write(row, DATA_HEADER_TABLE[2][TableEntry.Offset.value], vector.y)
-    ws.write(row, DATA_HEADER_TABLE[3][TableEntry.Offset.value], vector.z)
-    ws.write(row, DATA_HEADER_TABLE[4][TableEntry.Offset.value], vector.magnitude)
-    ws.write(row, DATA_HEADER_TABLE[5][TableEntry.Offset.value], vector.xG)
-    ws.write(row, DATA_HEADER_TABLE[6][TableEntry.Offset.value], vector.yG)
-    ws.write(row, DATA_HEADER_TABLE[7][TableEntry.Offset.value], vector.zG)
-    ws.write(row, DATA_HEADER_TABLE[8][TableEntry.Offset.value], vector.magnitudeG)
+    ws.write(row, DATA_HEADER_TABLE[1][TableEntry.Offset.value], v.x)
+    ws.write(row, DATA_HEADER_TABLE[2][TableEntry.Offset.value], v.y)
+    ws.write(row, DATA_HEADER_TABLE[3][TableEntry.Offset.value], v.z)
+    ws.write(row, DATA_HEADER_TABLE[4][TableEntry.Offset.value], v.magnitude)
+    ws.write(row, DATA_HEADER_TABLE[5][TableEntry.Offset.value], v.xG)
+    ws.write(row, DATA_HEADER_TABLE[6][TableEntry.Offset.value], v.yG)
+    ws.write(row, DATA_HEADER_TABLE[7][TableEntry.Offset.value], v.zG)
+    ws.write(row, DATA_HEADER_TABLE[8][TableEntry.Offset.value], v.magnitudeG)
     
     
 def process():
@@ -192,10 +164,10 @@ def process():
             entries = line.split(',')
             type = int(entries[0])
             if (type == 2):
-                vector = Vector(int(entries[1]), int(entries[2]), int(entries[3]))
-                writeData(ws, nLine, vector)
-                writeMagData(ws_mag, nFile, nLine, vector.magnitude)
-                writeMagData(ws_magg, nFile, nLine, vector.magnitudeG)
+                v = shot.vector(int(entries[1]), int(entries[2]), int(entries[3]))
+                writeData(ws, nLine, v)
+                writeMagData(ws_mag, nFile, nLine, v.magnitude)
+                writeMagData(ws_magg, nFile, nLine, v.magnitudeG)
                 nLine += 1
         nFile += 1
     wb.close()
