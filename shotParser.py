@@ -2,6 +2,7 @@
 import enum
 import glob
 import math
+import operator
 import os
 import shot
 import string
@@ -172,10 +173,22 @@ def process():
         nFile += 1
     wb.close()
     
+def process2():
+    data = []
+    for fileName in glob.glob('*.csv'):
+        print("processing {0}.".format(fileName))
+        datum = shot.data(fileName)
+        datum.process()
+        datum.analyze()
+        data.append(datum)
+        print("done processing {0}.".format(fileName))
+    data.sort(key=operator.attrgetter('maxAccel.magnitude'))
+    print('done sorting')
+    
 
 # === MAIN =====================================================================
 
 if __name__ == "__main__":
-    process()
+    process2()
 else:
     print("ERROR: shotParser needs to be the calling python module!")

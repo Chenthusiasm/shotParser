@@ -69,19 +69,21 @@ class data:
     def __init__(self, fileName: str = ''):
         self.fileName: str = fileName
         self.name: str = ''
-        self.numIMU: int = 0
+        self.numSamples: int = 0
         self.gyro: typing.List[vector] = []
         self.accel: typing.List[vector] = []
         self.calibration: vector
         self.handedness: Handedness = Handedness.Right
         self.maxGyro: vector
         self.maxAccel: vector
+        self.maxGyroIndex : int = 0
+        self.maxAccelIndex : int = 0
         
     def process(self):
         if self.fileName:
             self.name = self.fileName.replace('.csv', '')
             with open(os.path.join(os.getcwd(), self.fileName), 'r') as file:
-                readLines = file.readLines()
+                readLines = file.readlines()
             file.close()
             self.numIMU = 0
             for line in readLines:
@@ -103,6 +105,7 @@ class data:
                     self.handedness = Handedness.Right
                     if (n == Handedness.Left.value):
                         self.handedness = Handedness.Left
+                self.numSamples = len(self.gyro)
         
     def processFile(self, fileName : str):
         self.fileName = fileName
@@ -110,4 +113,6 @@ class data:
         
     def analyze(self):
         self.maxGyro = max(self.gyro, key = operator.attrgetter(MAX_ATTRIBUTE))
-        self.maxAccel = max(self.gyro, key = operator.attrgetter(MAX_ATTRIBUTE))
+        self.maxAccel = max(self.accel, key = operator.attrgetter(MAX_ATTRIBUTE))
+        self.maxGyroIndex = self.gyro.index(self.maxGyro)
+        self.maxAccelIndex = self.accel.index(self.maxAccel)
