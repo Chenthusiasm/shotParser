@@ -19,25 +19,18 @@ DEFAULT_FILE_NAME = "shotParser"
 
 class xlsx:
     class Column(enum.Enum):
-        Field = 0,
-        Value = 1,
+        Field = 0
+        Value = 1
         
     class Row(enum.Enum):
-        Name = 0,
+        Name = 0
         MaxMagnitude = 1
-        MaxMagnitudeIndex = 2,
-        ShotConfidence = 3,
-        ShotMagnitude = 4,
-        ShotMagnitudeIndex = 5,
-        ShotMagnitudeMinus4 = 6,
-        ShotMagnitudeMinus3 = 7,
-        ShotMagnitudeMinus2 = 8,
-        ShotMagnitudeMinus1 = 9,
-        ShotMagnitudeZero = 10,
-        ShotMagnitudePlus1 = 11,
-        ShotMagnitudePlus2 = 12,
-        ShotMagnitudePlus3 = 13,
-        ShotMagnitudePlus4 = 14,
+        MaxMagnitudeIndex = 2
+        MaxMagnitudeRange = 4
+        ShotConfidence = 14
+        ShotMagnitude = 15
+        ShotMagnitudeIndex = 16
+        ShotMagnitudeRange = 18
         
     EXTENSION = '.xlsx'
     
@@ -52,26 +45,38 @@ class xlsx:
     
     FIELD_NAMES = [
         'Name',
-        'Max Magnitude',
-        '[Max Magnitude]',
-        'Shot Confidence',
-        'Shot Magnitude',
-        '[Shot Magnitude]',
-        'Shot[-4] Magnitude',
-        'Shot[-3] Magnitude',
-        'Shot[-2] Magnitude',
-        'Shot[-1] Magnitude',
-        'Shot[ 0] Magnitude',
-        'Shot[+1] Magnitude',
-        'Shot[+2] Magnitude',
-        'Shot[+3] Magnitude',
-        'Shot[+4] Magnitude',
+        'Max',
+        'Max[]',
+        '',
+        'Max[-4]',
+        'Max[-3]',
+        'Max[-2]',
+        'Max[-1]',
+        'Max[ 0]',
+        'Max[+1]',
+        'Max[+2]',
+        'Max[+3]',
+        'Max[+4]',
+        '',
+        'Confidence',
+        'Shot',
+        'Shot[]',
+        '',
+        'Shot[-4]',
+        'Shot[-3]',
+        'Shot[-2]',
+        'Shot[-1]',
+        'Shot[ 0]',
+        'Shot[+1]',
+        'Shot[+2]',
+        'Shot[+3]',
+        'Shot[+4]',
     ]
         
     class sheet:
         def __init__(self, name: str, ws : xlsxwriter.Workbook.worksheet_class):
-            self.name = name
-            self.colIndex = 0
+            self.name : str = name
+            self.colIndex : int = 0
             self.ws: xlsxwriter.Workbook.worksheet_class = ws
         
     def __init__(self, fileName: str = DEFAULT_FILE_NAME, sheetNames: typing.List[str] = DEFAULT_SHEET_NAMES):
@@ -90,15 +95,19 @@ class xlsx:
         col = s.colIndex
         ws : xlsxwriter.Workbook.worksheet_class = s.ws
         ws.write(self.Row.Name.value, col, data.name)
-        ws.write(self.Row.MaxMagnitude.value, col, data.maxAccel)
+        ws.write(self.Row.MaxMagnitude.value, col, data.maxAccel.magnitude)
         ws.write(self.Row.MaxMagnitudeIndex.value, col, data.maxAccelIndex)
-        ws.write(self.Row.ShotConfidence.value, col, data.shotConfidence)
-        ws.write(self.Row.ShotMagnitude.value, col, data.shotMagnitude)
+        for i, j in enumerate(range(-4, 4 + 1)):
+            index = data.maxAccelIndex + j
+            if index >= 0 and index < data.numSamples:
+                ws.write(self.Row.MaxMagnitudeRange.value + i, col, data.accel[index].magnitude)
+        ws.write(self.Row.ShotConfidence.value, col, data.shotConfidence.value)
+        ws.write(self.Row.ShotMagnitude.value, col, data.shot.magnitude)
         ws.write(self.Row.ShotMagnitudeIndex.value, col, data.shotIndex)
         for i, j in enumerate(range(-4, 4 + 1)):
             index = data.shotIndex + j
             if index >= 0 and index < data.numSamples:
-                ws.write(self.Row.ShotMagnitudeMinus1.value + i, col, data.accel[index].magnitude)
+                ws.write(self.Row.ShotMagnitudeRange.value + i, col, data.accel[index].magnitude)
         s.colIndex += 1
         
     def finalize(self):

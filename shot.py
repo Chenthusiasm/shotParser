@@ -86,11 +86,11 @@ class data:
         self.handedness: Handedness = Handedness.Right
         self.maxGyro: vector
         self.maxAccel: vector
-        self.maxGyroIndex : int = 0
-        self.maxAccelIndex : int = 0
-        self.shotIndex : int = 0
-        self.shotMagnitude : int = 0
-        self.shotConfidence : ShotConfidence = ShotConfidence.Reset
+        self.maxGyroIndex: int = 0
+        self.maxAccelIndex: int = 0
+        self.shot: vector
+        self.shotIndex: int = 0
+        self.shotConfidence: ShotConfidence = ShotConfidence.Reset
         
     def process(self):
         if self.fileName:
@@ -119,7 +119,7 @@ class data:
                     self.handedness = Handedness.Right
                     if (n == Handedness.Left.value):
                         self.handedness = Handedness.Left
-                self.numSamples = len(self.gyro)
+                self.numSamples = min(len(self.gyro), len(self.accel))
         
     def processFile(self, fileName : str):
         self.fileName = fileName
@@ -152,4 +152,7 @@ class data:
                 elif i < (self.numSamples - 1) and self.accel[i + 1].magnitude >= NEIGHBOR_THRESHOLD:
                     self.shotConfidence = ShotConfidence.Low
                     self.shotIndex = i
-        self.shotMagnitude = self.accel[self.shotIndex].magnitude
+                else:
+                    self.shotConfidence = ShotConfidence.NoShot
+                    self.shotIndex = i
+        self.shot = self.accel[self.shotIndex]

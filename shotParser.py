@@ -203,6 +203,7 @@ def process2():
             print('{0} already exists'.format(path))
     data = []
     for fileName in glob.glob('*.csv'):
+        print('processing {0}...'.format(fileName))
         datum = shot.data(fileName)
         datum.process()
         datum.analyze()
