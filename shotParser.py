@@ -5,6 +5,8 @@ import math
 import operator
 import os
 import shot
+import shotOutput
+import shutil
 import string
 import typing
 import xlsxwriter
@@ -15,6 +17,24 @@ MAG_SPAN_VALUES = (-4, -3, -2, -1, 0, 1, 2, 3, 4)
 MAX_SPAN_SIZE = len(MAG_SPAN_VALUES)
 MAX_COL = 1000
 NUM_LETTERS = len(string.ascii_uppercase)
+
+SHOT_CONFIDENCE = (
+    '0_Reset',
+    '1_NoShot',
+    '2_Low',
+    '3_Medium',
+    '4_High',
+    '5_VeryHigh',
+)
+
+COPY_PATHS = (
+    os.path.join(os.getcwd(), SHOT_CONFIDENCE[shot.ShotConfidence.Reset.value]),
+    os.path.join(os.getcwd(), SHOT_CONFIDENCE[shot.ShotConfidence.NoShot.value]),
+    os.path.join(os.getcwd(), SHOT_CONFIDENCE[shot.ShotConfidence.Low.value]),
+    os.path.join(os.getcwd(), SHOT_CONFIDENCE[shot.ShotConfidence.Medium.value]),
+    os.path.join(os.getcwd(), SHOT_CONFIDENCE[shot.ShotConfidence.High.value]),
+    os.path.join(os.getcwd(), SHOT_CONFIDENCE[shot.ShotConfidence.VeryHigh.value]),
+)
 
 
 # === ENUM =====================================================================
@@ -142,17 +162,18 @@ def writeData(ws : xlsxwriter.workbook.Worksheet, n : int, v : shot.vector):
     ws.write(row, DATA_HEADER_TABLE[8][TableEntry.Offset.value], v.magnitudeG)
     
     
-def process():
-    wb = xlsxwriter.Workbook('shotParser.xlsx')
+def process1():
+    wb = xlsxwriter.Workbook(XLSX_WORKBOOK)
     ws_mag = wb.add_worksheet("mag")
     writeMagFirstColHeader(ws_mag)
     ws_magg = wb.add_worksheet("mag (g)")
     writeMagFirstColHeader(ws_magg)
     nFile = 0
-    for filename in glob.glob('*.csv'):
-        print("processing {0}.".format(filename))
-        name = filename.replace(".csv", "")
-        with open(os.path.join(os.getcwd(), filename), 'r') as file:
+    for fileName in glob.glob('*.csv'):
+        print("processing {0}.".format(fileName))
+        name = fileName.replace(".csv", "")
+        filePath = os.path.join(os.getcwd(), fileName)
+        with open(filePath, 'r') as file:
             readLines = file.readlines()
         file.close()
         ws = wb.add_worksheet(name)
@@ -174,16 +195,26 @@ def process():
     wb.close()
     
 def process2():
+    output = shotOutput.xlsx()
+    for path in COPY_PATHS:
+        try:
+            os.makedirs(path)
+        except OSError as error:
+            print('{0} already exists'.format(path))
     data = []
     for fileName in glob.glob('*.csv'):
-        print("processing {0}.".format(fileName))
         datum = shot.data(fileName)
         datum.process()
         datum.analyze()
+        datum.findAndScoreShot()
+        confidenceIndex = datum.shotConfidence.value
+        copyPath = COPY_PATHS[confidenceIndex]
+        shutil.copy2(datum.filePath, copyPath)
+        output.writeShotData(datum)
         data.append(datum)
-        print("done processing {0}.".format(fileName))
-    data.sort(key=operator.attrgetter('maxAccel.magnitude'))
-    print('done sorting')
+    #data.sort(key=operator.attrgetter('maxAccel.magnitude'))
+    #data.sort(key=operator.attrgetter('shotMagnitude'))
+    output.finalize()
     
 
 # === MAIN =====================================================================

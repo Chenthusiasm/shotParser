@@ -8,6 +8,30 @@ import string
 import typing
 
 
+# === ENUM =====================================================================
+
+class LineIndex(enum.Enum):
+    Type = 0
+    X = 1
+    Y = 2
+    Z = 3
+NUM_LINE_INDICES = len(LineIndex)
+
+class Handedness(enum.Enum):
+    Right = 0
+    Left = 1
+NUM_HANDEDNESS = len(Handedness)
+
+class ShotConfidence(enum.Enum):
+    Reset = 0
+    NoShot = 1
+    Low = 2
+    Medium = 3
+    High = 4
+    VeryHigh = 5
+NUM_SHOT_CONFIDENCE = len(ShotConfidence)
+
+
 # === GLOBAL CONSTANTS =========================================================
 
 LSB_TO_G_DIVISOR = 4096
@@ -19,21 +43,6 @@ TYPE_CALIBRATION = 4
 TYPE_SETTINGS = 5
 TYPE_HI_G_ACCEL_COMP = 6
 MAX_ATTRIBUTE = 'magnitude'
-
-# === ENUM =====================================================================
-
-class LineIndex(enum.Enum):
-    Type = 0
-    X = 1
-    Y = 2
-    Z = 3
-NUM_LINE_INDICES = len(LineIndex)
-
-
-class Handedness(enum.Enum):
-    Right = 0
-    Left = 1
-NUM_HANDEDNESS = len(Handedness)
 
 
 # === HELPER FUNCTIONS =========================================================
@@ -68,6 +77,7 @@ class vector:
 class data:
     def __init__(self, fileName: str = ''):
         self.fileName: str = fileName
+        self.filePath: str = ''
         self.name: str = ''
         self.numSamples: int = 0
         self.gyro: typing.List[vector] = []
@@ -78,11 +88,15 @@ class data:
         self.maxAccel: vector
         self.maxGyroIndex : int = 0
         self.maxAccelIndex : int = 0
+        self.shotIndex : int = 0
+        self.shotMagnitude : int = 0
+        self.shotConfidence : ShotConfidence = ShotConfidence.Reset
         
     def process(self):
         if self.fileName:
             self.name = self.fileName.replace('.csv', '')
-            with open(os.path.join(os.getcwd(), self.fileName), 'r') as file:
+            self.filePath = os.path.join(os.getcwd(), self.fileName)
+            with open(self.filePath, 'r') as file:
                 readLines = file.readlines()
             file.close()
             self.numIMU = 0
@@ -116,3 +130,26 @@ class data:
         self.maxAccel = max(self.accel, key = operator.attrgetter(MAX_ATTRIBUTE))
         self.maxGyroIndex = self.gyro.index(self.maxGyro)
         self.maxAccelIndex = self.accel.index(self.maxAccel)
+        
+    def findAndScoreShot(self):
+        self.shotConfidence = ShotConfidence.NoShot
+        for i, v in enumerate(self.accel):
+            if v.magnitude >= 40000:
+                self.shotConfidence = ShotConfidence.VeryHigh
+                self.shotIndex = i
+                break
+            elif v.magnitude >= 35000 and self.shotConfidence.value < ShotConfidence.High.value:
+                self.shotConfidence = ShotConfidence.High
+                self.shotIndex = i
+            elif v.magnitude >= 30000 and self.shotConfidence.value < ShotConfidence.Medium.value:
+                self.shotConfidence = ShotConfidence.Medium
+                self.shotIndex = i
+            elif v.magnitude >= 20000 and self.shotConfidence.value < ShotConfidence.Low.value:
+                NEIGHBOR_THRESHOLD = 15000
+                if i > 0 and self.accel[i - 1].magnitude >= NEIGHBOR_THRESHOLD:
+                    self.shotConfidence = ShotConfidence.Low
+                    self.shotindex = i
+                elif i < (self.numSamples - 1) and self.accel[i + 1].magnitude >= NEIGHBOR_THRESHOLD:
+                    self.shotConfidence = ShotConfidence.Low
+                    self.shotIndex = i
+        self.shotMagnitude = self.accel[self.shotIndex].magnitude
