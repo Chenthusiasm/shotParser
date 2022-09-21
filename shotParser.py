@@ -21,15 +21,17 @@ NUM_LETTERS = len(string.ascii_uppercase)
 SHOT_CONFIDENCE = (
     '0_Reset',
     '1_NoShot',
-    '2_Low',
-    '3_Medium',
-    '4_High',
-    '5_VeryHigh',
+    '2_VeryLow',
+    '3_Low',
+    '4_Medium',
+    '5_High',
+    '6_VeryHigh',
 )
 
 COPY_PATHS = (
     os.path.join(os.getcwd(), SHOT_CONFIDENCE[shot.ShotConfidence.Reset.value]),
     os.path.join(os.getcwd(), SHOT_CONFIDENCE[shot.ShotConfidence.NoShot.value]),
+    os.path.join(os.getcwd(), SHOT_CONFIDENCE[shot.ShotConfidence.VeryLow.value]),
     os.path.join(os.getcwd(), SHOT_CONFIDENCE[shot.ShotConfidence.Low.value]),
     os.path.join(os.getcwd(), SHOT_CONFIDENCE[shot.ShotConfidence.Medium.value]),
     os.path.join(os.getcwd(), SHOT_CONFIDENCE[shot.ShotConfidence.High.value]),

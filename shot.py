@@ -25,10 +25,11 @@ NUM_HANDEDNESS = len(Handedness)
 class ShotConfidence(enum.Enum):
     Reset = 0
     NoShot = 1
-    Low = 2
-    Medium = 3
-    High = 4
-    VeryHigh = 5
+    VeryLow = 2
+    Low = 3
+    Medium = 4
+    High = 5
+    VeryHigh = 6
 NUM_SHOT_CONFIDENCE = len(ShotConfidence)
 
 
@@ -41,7 +42,7 @@ TYPE_IMU_ACCEL = 2
 TYPE_HI_G_ACCEL = 3
 TYPE_CALIBRATION = 4
 TYPE_SETTINGS = 5
-TYPE_HI_G_ACCEL_COMP = 6
+TYPE_HI_G_ACCEL_COMP = 7
 MAX_ATTRIBUTE = 'magnitude'
 
 
@@ -79,15 +80,17 @@ class data:
         self.fileName: str = fileName
         self.filePath: str = ''
         self.name: str = ''
-        self.numSamples: int = 0
         self.gyro: typing.List[vector] = []
         self.accel: typing.List[vector] = []
+        self.hiG: typing.List[vector] = []
         self.calibration: vector
         self.handedness: Handedness = Handedness.Right
         self.maxGyro: vector
         self.maxAccel: vector
+        self.maxHiG: vector
         self.maxGyroIndex: int = 0
         self.maxAccelIndex: int = 0
+        self.maxHiGIndex: int = 0
         self.shot: vector
         self.shotIndex: int = 0
         self.shotConfidence: ShotConfidence = ShotConfidence.Reset
@@ -112,6 +115,8 @@ class data:
                     self.gyro.append(v)
                 elif (type == TYPE_IMU_ACCEL):
                     self.accel.append(v)
+                elif (type == TYPE_HI_G_ACCEL):
+                    self.hiG.append(v)
                 elif (type == TYPE_CALIBRATION):
                     self.calibration = v
                 elif (type == TYPE_SETTINGS):
@@ -119,7 +124,23 @@ class data:
                     self.handedness = Handedness.Right
                     if (n == Handedness.Left.value):
                         self.handedness = Handedness.Left
-                self.numSamples = min(len(self.gyro), len(self.accel))
+                elif (type == TYPE_HI_G_ACCEL_COMP):
+                    x : int = int(entries[LineIndex.X.value])
+                    y : int = int(entries[LineIndex.Y.value])
+                    z : int = int(entries[LineIndex.Z.value])
+                    HI_SHIFT = 8
+                    LO_SHIFT = 0
+                    MASK = 0xff
+                    v0 : vector = vector(
+                        (x >> LO_SHIFT) & MASK,
+                        (x >> HI_SHIFT) & MASK,
+                        (y >> LO_SHIFT) & MASK)
+                    v1 : vector = vector(
+                        (y >> HI_SHIFT) & MASK,
+                        (z >> LO_SHIFT) & MASK,
+                        (z >> HI_SHIFT) & MASK)
+                    self.hiG.append(v0)
+                    self.hiG.append(v1)
         
     def processFile(self, fileName : str):
         self.fileName = fileName
@@ -128,16 +149,17 @@ class data:
     def analyze(self):
         self.maxGyro = max(self.gyro, key = operator.attrgetter(MAX_ATTRIBUTE))
         self.maxAccel = max(self.accel, key = operator.attrgetter(MAX_ATTRIBUTE))
+        self.maxHiG = max(self.hiG, key = operator.attrgetter(MAX_ATTRIBUTE))
         self.maxGyroIndex = self.gyro.index(self.maxGyro)
         self.maxAccelIndex = self.accel.index(self.maxAccel)
+        self.maxHiGIndex = self.hiG.index(self.maxHiG)
         
     def findAndScoreShot(self):
         self.shotConfidence = ShotConfidence.NoShot
         for i, v in enumerate(self.accel):
-            if v.magnitude >= 40000:
+            if v.magnitude >= 40000 and self.shotConfidence.value < ShotConfidence.VeryHigh.value:
                 self.shotConfidence = ShotConfidence.VeryHigh
                 self.shotIndex = i
-                break
             elif v.magnitude >= 35000 and self.shotConfidence.value < ShotConfidence.High.value:
                 self.shotConfidence = ShotConfidence.High
                 self.shotIndex = i
@@ -145,14 +167,13 @@ class data:
                 self.shotConfidence = ShotConfidence.Medium
                 self.shotIndex = i
             elif v.magnitude >= 20000 and self.shotConfidence.value < ShotConfidence.Low.value:
-                NEIGHBOR_THRESHOLD = 15000
-                if i > 0 and self.accel[i - 1].magnitude >= NEIGHBOR_THRESHOLD:
+                NEIGHBOR_THRESHOLD = 12000
+                numSamples = len(self.accel)
+                if (i > 0) and (self.accel[i - 1].magnitude >= NEIGHBOR_THRESHOLD):
                     self.shotConfidence = ShotConfidence.Low
-                    self.shotindex = i
-                elif i < (self.numSamples - 1) and self.accel[i + 1].magnitude >= NEIGHBOR_THRESHOLD:
+                elif (i < (numSamples - 1)) and (self.accel[i + 1].magnitude >= NEIGHBOR_THRESHOLD):
                     self.shotConfidence = ShotConfidence.Low
-                    self.shotIndex = i
                 else:
-                    self.shotConfidence = ShotConfidence.NoShot
-                    self.shotIndex = i
+                    self.shotConfidence = ShotConfidence.VeryLow
+                self.shotIndex = i
         self.shot = self.accel[self.shotIndex]

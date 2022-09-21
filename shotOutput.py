@@ -24,19 +24,25 @@ class xlsx:
         
     class Row(enum.Enum):
         Name = 0
-        MaxMagnitude = 1
-        MaxMagnitudeIndex = 2
-        MaxMagnitudeRange = 4
-        ShotConfidence = 14
-        ShotMagnitude = 15
-        ShotMagnitudeIndex = 16
-        ShotMagnitudeRange = 18
+        MaxGyro = 1
+        MaxGyroIndex = 2
+        MaxHiG = 3
+        MaxHiGIndex = 4
+        MaxAccel = 5
+        MaxAccelIndex = 6
+        MaxAccelRange = 8
+        ShotConfidence = 18
+        ShotAccel = 19
+        ShotGyro = 20
+        ShotAccelIndex = 21
+        ShotAccelRange = 23
         
     EXTENSION = '.xlsx'
     
     DEFAULT_SHEET_NAMES = (
         'Reset',
         'No Shot',
+        'Very Low',
         'Low',
         'Medium',
         'High',
@@ -45,21 +51,26 @@ class xlsx:
     
     FIELD_NAMES = [
         'Name',
-        'Max',
-        'Max[]',
+        'MaxGyro',
+        'MaxGyro[]',
+        'MaxHiG',
+        'MaxHiG[]',
+        'MaxAccel',
+        'MaxAccel[]',
         '',
-        'Max[-4]',
-        'Max[-3]',
-        'Max[-2]',
-        'Max[-1]',
-        'Max[ 0]',
-        'Max[+1]',
-        'Max[+2]',
-        'Max[+3]',
-        'Max[+4]',
+        'MaxAccel[-4]',
+        'MaxAccel[-3]',
+        'MaxAccel[-2]',
+        'MaxAccel[-1]',
+        'MaxAccel[ 0]',
+        'MaxAccel[+1]',
+        'MaxAccel[+2]',
+        'MaxAccel[+3]',
+        'MaxAccel[+4]',
         '',
         'Confidence',
-        'Shot',
+        'ShotAccel',
+        'ShotGyro',
         'Shot[]',
         '',
         'Shot[-4]',
@@ -95,19 +106,27 @@ class xlsx:
         col = s.colIndex
         ws : xlsxwriter.Workbook.worksheet_class = s.ws
         ws.write(self.Row.Name.value, col, data.name)
-        ws.write(self.Row.MaxMagnitude.value, col, data.maxAccel.magnitude)
-        ws.write(self.Row.MaxMagnitudeIndex.value, col, data.maxAccelIndex)
+        ws.write(self.Row.MaxGyro.value, col, data.maxGyro.magnitude)
+        ws.write(self.Row.MaxGyroIndex.value, col, data.maxGyroIndex)
+        ws.write(self.Row.MaxHiG.value, col, data.maxHiG.magnitude)
+        ws.write(self.Row.MaxHiGIndex.value, col, data.maxHiGIndex)
+        ws.write(self.Row.MaxAccel.value, col, data.maxAccel.magnitude)
+        ws.write(self.Row.MaxAccelIndex.value, col, data.maxAccelIndex)
+        numSamples = len(data.accel)
         for i, j in enumerate(range(-4, 4 + 1)):
             index = data.maxAccelIndex + j
-            if index >= 0 and index < data.numSamples:
-                ws.write(self.Row.MaxMagnitudeRange.value + i, col, data.accel[index].magnitude)
+            if index >= 0 and index < numSamples:
+                ws.write(self.Row.MaxAccelRange.value + i, col, data.accel[index].magnitude)
         ws.write(self.Row.ShotConfidence.value, col, data.shotConfidence.value)
-        ws.write(self.Row.ShotMagnitude.value, col, data.shot.magnitude)
-        ws.write(self.Row.ShotMagnitudeIndex.value, col, data.shotIndex)
+        shotIndex = data.shotIndex
+        ws.write(self.Row.ShotAccel.value, col, data.shot.magnitude)
+        if (shotIndex < len(data.gyro)):
+            ws.write(self.Row.ShotGyro.value, col, data.gyro[shotIndex].magnitude)
+        ws.write(self.Row.ShotAccelIndex.value, col, shotIndex)
         for i, j in enumerate(range(-4, 4 + 1)):
             index = data.shotIndex + j
-            if index >= 0 and index < data.numSamples:
-                ws.write(self.Row.ShotMagnitudeRange.value + i, col, data.accel[index].magnitude)
+            if index >= 0 and index < numSamples:
+                ws.write(self.Row.ShotAccelRange.value + i, col, data.accel[index].magnitude)
         s.colIndex += 1
         
     def finalize(self):
