@@ -43,7 +43,6 @@ TYPE_HI_G_ACCEL = 3
 TYPE_CALIBRATION = 4
 TYPE_SETTINGS = 5
 TYPE_HI_G_ACCEL_COMP = 7
-MAX_ATTRIBUTE = 'magnitude'
 
 
 # === HELPER FUNCTIONS =========================================================
@@ -72,9 +71,15 @@ class vector:
         self.magnitudeG: float = convertLsbToG(self.magnitude)
         
     def getVectorSum(self) -> int:
-        return abs(self.x) + abs(self.y) + abs(self.z) 
+        return abs(self.x) + abs(self.y) + abs(self.z)
     
     
+class vectorDatum:
+    def __init__(self, v: vector, index: int = 0):
+        self.v: vector = v
+        self.index: int = index
+        
+        
 class data:
     def __init__(self, fileName: str = ''):
         self.fileName: str = fileName
@@ -85,14 +90,13 @@ class data:
         self.hiG: typing.List[vector] = []
         self.calibration: vector
         self.handedness: Handedness = Handedness.Right
-        self.maxGyro: vector
-        self.maxAccel: vector
-        self.maxHiG: vector
-        self.maxGyroIndex: int = 0
-        self.maxAccelIndex: int = 0
-        self.maxHiGIndex: int = 0
-        self.shot: vector
-        self.shotIndex: int = 0
+        self.maxGyro: vectorDatum
+        self.maxAccel: vectorDatum
+        self.maxHiG: vectorDatum
+        self.maxAccelX: vectorDatum
+        self.maxAccelY: vectorDatum
+        self.maxAccelZ: vectorDatum
+        self.shot: vectorDatum
         self.shotConfidence: ShotConfidence = ShotConfidence.Reset
         
     def process(self):
@@ -147,25 +151,45 @@ class data:
         self.process()
         
     def analyze(self):
-        self.maxGyro = max(self.gyro, key = operator.attrgetter(MAX_ATTRIBUTE))
-        self.maxAccel = max(self.accel, key = operator.attrgetter(MAX_ATTRIBUTE))
-        self.maxHiG = max(self.hiG, key = operator.attrgetter(MAX_ATTRIBUTE))
-        self.maxGyroIndex = self.gyro.index(self.maxGyro)
-        self.maxAccelIndex = self.accel.index(self.maxAccel)
-        self.maxHiGIndex = self.hiG.index(self.maxHiG)
+        MAGNITUDE = 'magnitude'
+        v: vector = max(self.gyro, key = operator.attrgetter(MAGNITUDE))
+        i: int = self.gyro.index(v)
+        self.maxGyro = vectorDatum(v, i)
+        
+        v: vector = max(self.accel, key = operator.attrgetter(MAGNITUDE))
+        i: int = self.accel.index(v)
+        self.maxAccel = vectorDatum(v, i)
+        
+        v: vector = max(self.hiG, key = operator.attrgetter(MAGNITUDE))
+        i: int = self.hiG.index(v)
+        self.maxHiG = vectorDatum(v, i)
+        
+        v: vector = max(self.accel, key = operator.attrgetter('x'))
+        i: int = self.accel.index(v)
+        self.maxAccelX = vectorDatum(v, i)
+        
+        v: vector = max(self.accel, key = operator.attrgetter('y'))
+        i: int = self.accel.index(v)
+        self.maxAccelY = vectorDatum(v, i)
+        
+        v: vector = max(self.accel, key = operator.attrgetter('z'))
+        i: int = self.accel.index(v)
+        self.maxAccelZ = vectorDatum(v, i)
+        
         
     def findAndScoreShot(self):
         self.shotConfidence = ShotConfidence.NoShot
+        shotIndex: int = 0
         for i, v in enumerate(self.accel):
             if v.magnitude >= 40000 and self.shotConfidence.value < ShotConfidence.VeryHigh.value:
                 self.shotConfidence = ShotConfidence.VeryHigh
-                self.shotIndex = i
+                shotIndex = i
             elif v.magnitude >= 35000 and self.shotConfidence.value < ShotConfidence.High.value:
                 self.shotConfidence = ShotConfidence.High
-                self.shotIndex = i
+                shotIndex = i
             elif v.magnitude >= 30000 and self.shotConfidence.value < ShotConfidence.Medium.value:
                 self.shotConfidence = ShotConfidence.Medium
-                self.shotIndex = i
+                shotIndex = i
             elif v.magnitude >= 20000 and self.shotConfidence.value < ShotConfidence.Low.value:
                 NEIGHBOR_THRESHOLD = 12000
                 numSamples = len(self.accel)
@@ -175,5 +199,5 @@ class data:
                     self.shotConfidence = ShotConfidence.Low
                 else:
                     self.shotConfidence = ShotConfidence.VeryLow
-                self.shotIndex = i
-        self.shot = self.accel[self.shotIndex]
+                shotIndex = i
+        self.shot = vectorDatum(self.accel[shotIndex], shotIndex)
