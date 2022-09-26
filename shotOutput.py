@@ -106,25 +106,25 @@ class xlsx:
         col = s.colIndex
         ws : xlsxwriter.Workbook.worksheet_class = s.ws
         ws.write(self.Row.Name.value, col, data.name)
-        ws.write(self.Row.MaxGyro.value, col, data.maxGyro.magnitude)
-        ws.write(self.Row.MaxGyroIndex.value, col, data.maxGyroIndex)
-        ws.write(self.Row.MaxHiG.value, col, data.maxHiG.magnitude)
-        ws.write(self.Row.MaxHiGIndex.value, col, data.maxHiGIndex)
-        ws.write(self.Row.MaxAccel.value, col, data.maxAccel.magnitude)
-        ws.write(self.Row.MaxAccelIndex.value, col, data.maxAccelIndex)
+        ws.write(self.Row.MaxGyro.value, col, data.maxGyro.v.magnitude)
+        ws.write(self.Row.MaxGyroIndex.value, col, data.maxGyro.index)
+        ws.write(self.Row.MaxHiG.value, col, data.maxHiG.v.magnitude)
+        ws.write(self.Row.MaxHiGIndex.value, col, data.maxHiG.index)
+        ws.write(self.Row.MaxAccel.value, col, data.maxAccel.v.magnitude)
+        ws.write(self.Row.MaxAccelIndex.value, col, data.maxAccel.index)
         numSamples = len(data.accel)
         for i, j in enumerate(range(-4, 4 + 1)):
-            index = data.maxAccelIndex + j
+            index = data.maxAccel.index + j
             if index >= 0 and index < numSamples:
                 ws.write(self.Row.MaxAccelRange.value + i, col, data.accel[index].magnitude)
         ws.write(self.Row.ShotConfidence.value, col, data.shotConfidence.value)
-        shotIndex = data.shotIndex
-        ws.write(self.Row.ShotAccel.value, col, data.shot.magnitude)
+        shotIndex = data.shot.index
+        ws.write(self.Row.ShotAccel.value, col, data.shot.v.magnitude)
         if (shotIndex < len(data.gyro)):
             ws.write(self.Row.ShotGyro.value, col, data.gyro[shotIndex].magnitude)
         ws.write(self.Row.ShotAccelIndex.value, col, shotIndex)
         for i, j in enumerate(range(-4, 4 + 1)):
-            index = data.shotIndex + j
+            index = data.shot.index + j
             if index >= 0 and index < numSamples:
                 ws.write(self.Row.ShotAccelRange.value + i, col, data.accel[index].magnitude)
         s.colIndex += 1
