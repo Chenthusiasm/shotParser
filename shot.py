@@ -62,6 +62,9 @@ class vector:
         self.yG: float = convertLsbToG(self.y)
         self.zG: float = convertLsbToG(self.z)
         self.magnitudeG: float = convertLsbToG(self.magnitude)
+        self.absX: float = abs(x)
+        self.absY: float = abs(y)
+        self.absZ: float = abs(z)
         
     def getVectorSum(self) -> int:
         return abs(self.x) + abs(self.y) + abs(self.z)
@@ -101,7 +104,8 @@ class data:
         if self.fileName:
             self.__process()
             self.__analyze()
-            self.__findAndScoreShot()
+            self.__findShot()
+            #self.__findAndScoreShot()
         
     def __process(self):
         if self.fileName:
@@ -164,40 +168,69 @@ class data:
         i: int = self.hiG.index(v)
         self.maxHiG = vectorDatum(v, i)
         
-        v: vector = max(self.accel, key = operator.attrgetter('x'))
+        v: vector = max(self.accel, key = operator.attrgetter('absX'))
         i: int = self.accel.index(v)
         self.maxAccelX = vectorDatum(v, i)
         
-        v: vector = max(self.accel, key = operator.attrgetter('y'))
+        v: vector = max(self.accel, key = operator.attrgetter('absY'))
         i: int = self.accel.index(v)
         self.maxAccelY = vectorDatum(v, i)
         
-        v: vector = max(self.accel, key = operator.attrgetter('z'))
+        v: vector = max(self.accel, key = operator.attrgetter('absZ'))
         i: int = self.accel.index(v)
         self.maxAccelZ = vectorDatum(v, i)
         
-        
-    def __findAndScoreShot(self):
+    def __findShot(self, offset: int = 0) -> int:
+        __SHOT_THRESHOLD: int = 10000
+        __SCORE_LUT: typing.List[ShotConfidence] = (
+            ShotConfidence.NoShot,
+            ShotConfidence.Medium,
+            ShotConfidence.High,
+            ShotConfidence.VeryHigh,
+        )
         self.shotConfidence = ShotConfidence.NoShot
         shotIndex: int = 0
-        for i, v in enumerate(self.accel):
+        for i, v in enumerate(self.accel[offset:]):
+            index: int = offset + i
+            score: int = 0
+            if v.absX > __SHOT_THRESHOLD:
+                score += 1
+            if v.absY > __SHOT_THRESHOLD:
+                score += 1
+            if v.absZ > __SHOT_THRESHOLD:
+                score += 1
+            if score >= len(__SCORE_LUT):
+                score = len(__SCORE_LUT) - 1
+            if score > 0:
+                shotIndex = index
+                self.shotConfidence = __SCORE_LUT[score]
+                self.shot = vectorDatum(self.accel[shotIndex], shotIndex)
+                break
+        return shotIndex
+            
+    def __findAndScoreShot(self, offset: int = 0) -> int:
+        self.shotConfidence = ShotConfidence.NoShot
+        shotIndex: int = 0
+        for i, v in enumerate(self.accel[offset:]):
+            index: int = offset + i
             if v.magnitude >= 40000 and self.shotConfidence.value < ShotConfidence.VeryHigh.value:
                 self.shotConfidence = ShotConfidence.VeryHigh
-                shotIndex = i
+                shotIndex = index
             elif v.magnitude >= 35000 and self.shotConfidence.value < ShotConfidence.High.value:
                 self.shotConfidence = ShotConfidence.High
-                shotIndex = i
+                shotIndex = index
             elif v.magnitude >= 30000 and self.shotConfidence.value < ShotConfidence.Medium.value:
                 self.shotConfidence = ShotConfidence.Medium
-                shotIndex = i
+                shotIndex = index
             elif v.magnitude >= 20000 and self.shotConfidence.value < ShotConfidence.Low.value:
                 NEIGHBOR_THRESHOLD = 12000
                 numSamples = len(self.accel)
-                if (i > 0) and (self.accel[i - 1].magnitude >= NEIGHBOR_THRESHOLD):
+                if (index > 0) and (self.accel[i - 1].magnitude >= NEIGHBOR_THRESHOLD):
                     self.shotConfidence = ShotConfidence.Low
-                elif (i < (numSamples - 1)) and (self.accel[i + 1].magnitude >= NEIGHBOR_THRESHOLD):
+                elif (index < (numSamples - 1)) and (self.accel[index + 1].magnitude >= NEIGHBOR_THRESHOLD):
                     self.shotConfidence = ShotConfidence.Low
                 else:
                     self.shotConfidence = ShotConfidence.VeryLow
-                shotIndex = i
+                shotIndex = index
         self.shot = vectorDatum(self.accel[shotIndex], shotIndex)
+        return shotIndex

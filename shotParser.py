@@ -163,40 +163,7 @@ def writeData(ws : xlsxwriter.workbook.Worksheet, n : int, v : shot.vector):
     ws.write(row, DATA_HEADER_TABLE[7][TableEntry.Offset.value], v.zG)
     ws.write(row, DATA_HEADER_TABLE[8][TableEntry.Offset.value], v.magnitudeG)
     
-    
-def process1():
-    wb = xlsxwriter.Workbook(XLSX_WORKBOOK)
-    ws_mag = wb.add_worksheet("mag")
-    writeMagFirstColHeader(ws_mag)
-    ws_magg = wb.add_worksheet("mag (g)")
-    writeMagFirstColHeader(ws_magg)
-    nFile = 0
-    for fileName in glob.glob('*.csv'):
-        print("processing {0}.".format(fileName))
-        name = fileName.replace(".csv", "")
-        filePath = os.path.join(os.getcwd(), fileName)
-        with open(filePath, 'r') as file:
-            readLines = file.readlines()
-        file.close()
-        ws = wb.add_worksheet(name)
-        writeDataHeader(ws)
-        writeMagHeader(ws_mag, nFile, name)
-        writeMagHeader(ws_magg, nFile, name)
-        nLine = 0
-        for line in readLines:
-            line = line.strip()
-            entries = line.split(',')
-            type = int(entries[0])
-            if (type == 2):
-                v = shot.vector(int(entries[1]), int(entries[2]), int(entries[3]))
-                writeData(ws, nLine, v)
-                writeMagData(ws_mag, nFile, nLine, v.magnitude)
-                writeMagData(ws_magg, nFile, nLine, v.magnitudeG)
-                nLine += 1
-        nFile += 1
-    wb.close()
-    
-def process2():
+def process():
     output = shotOutput.xlsx()
     for path in COPY_PATHS:
         try:
@@ -216,10 +183,16 @@ def process2():
     #data.sort(key=operator.attrgetter('shotMagnitude'))
     output.finalize()
     
+def processTest():
+    __LUT = ( 'red', 'green', 'blue', 'cyan', 'magenta', 'yellow', 'black', 'white' )
+    for i, color in enumerate(__LUT[2:]):
+        print('[{0}] = {1}'.format(i, color))
+    
 
 # === MAIN =====================================================================
 
 if __name__ == "__main__":
-    process2()
+    process()
+    #processTest()
 else:
     print("ERROR: shotParser needs to be the calling python module!")
