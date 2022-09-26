@@ -40,6 +40,9 @@ class Col(enum.Enum):
     Shot = Z + VECTOR_OFFSET_LENGTH + 1
     ShotConfidence = Shot + VECTOR_OFFSET_LENGTH
     ShotRange = 1 + ShotConfidence + 1
+    AltShot = ShotRange + RANGE_LENGTH + 1
+    AltShotConfidence = AltShot + VECTOR_OFFSET_LENGTH
+    AltShotRange = 1 + AltShotConfidence + 1
 
 
 # === CLASSES ==================================================================
@@ -50,7 +53,6 @@ class xlsx:
     __DEFAULT_COLUMN_WIDTH = 20
     
     __DEFAULT_SHEET_NAMES = (
-        'Reset',
         'No Shot',
         'Very Low',
         'Low',
@@ -111,6 +113,24 @@ class xlsx:
         'Shot[+2]',
         'Shot[+3]',
         'Shot[+4]',
+        '',
+        'Alt',
+        'Alt[]',
+        'Alt-x',
+        'Alt-y',
+        'Alt-z',
+        'Confidence',
+        '',
+        'Alt[-4]',
+        'Alt[-3]',
+        'Alt[-2]',
+        'Alt[-1]',
+        'Alt[ 0]',
+        'Alt[+1]',
+        'Alt[+2]',
+        'Alt[+3]',
+        'Alt[+4]',
+        
     ]
     __HEADERS_LENGTH = len(__HEADERS)
         
@@ -152,7 +172,7 @@ class xlsx:
         return col + RANGE_LENGTH
     
     def writeShotData(self, data : shot.data):
-        s : self.sheet = self.sheets[data.shotConfidence.value]
+        s : self.sheet = self.sheets[data.shot.confidence.value]
         row = s.row
         ws : xlsxwriter.Workbook.worksheet_class = s.ws
         ws.write(row, Col.Name.value, data.name)
@@ -161,10 +181,12 @@ class xlsx:
         self.__writeVectorDatum(ws, row, Col.X.value, data.maxAccelX)
         self.__writeVectorDatum(ws, row, Col.Y.value, data.maxAccelY)
         self.__writeVectorDatum(ws, row, Col.Z.value, data.maxAccelZ)
-        self.__writeVectorDatum(ws, row, Col.Shot.value, data.shot)
-        ws.write(row, Col.ShotConfidence.value, data.shotConfidence.value)
-        self.__writeRange(ws, row, Col.ShotRange.value, data.accel, data.shot.index)
-        ws.write(row, Col.V.value + VectorOffset.Magnitude.value, data.maxAccel.v.magnitude)
+        self.__writeVectorDatum(ws, row, Col.Shot.value, data.shot.datum)
+        ws.write(row, Col.ShotConfidence.value, data.shot.confidence.value)
+        self.__writeRange(ws, row, Col.ShotRange.value, data.accel, data.shot.datum.index)
+        self.__writeVectorDatum(ws, row, Col.AltShot.value, data.altShot.datum)
+        ws.write(row, Col.AltShotConfidence.value, data.altShot.confidence.value)
+        self.__writeRange(ws, row, Col.AltShotRange.value, data.accel, data.altShot.datum.index)
         s.row += 1
         
     def finalize(self):

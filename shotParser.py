@@ -19,17 +19,15 @@ MAX_COL = 1000
 NUM_LETTERS = len(string.ascii_uppercase)
 
 SHOT_CONFIDENCE = (
-    '0_Reset',
-    '1_NoShot',
-    '2_VeryLow',
-    '3_Low',
-    '4_Medium',
-    '5_High',
-    '6_VeryHigh',
+    '0_NoShot',
+    '1_VeryLow',
+    '2_Low',
+    '3_Medium',
+    '4_High',
+    '5_VeryHigh',
 )
 
 COPY_PATHS = (
-    os.path.join(os.getcwd(), SHOT_CONFIDENCE[shot.ShotConfidence.Reset.value]),
     os.path.join(os.getcwd(), SHOT_CONFIDENCE[shot.ShotConfidence.NoShot.value]),
     os.path.join(os.getcwd(), SHOT_CONFIDENCE[shot.ShotConfidence.VeryLow.value]),
     os.path.join(os.getcwd(), SHOT_CONFIDENCE[shot.ShotConfidence.Low.value]),
@@ -174,7 +172,7 @@ def process():
     for fileName in glob.glob('*.csv'):
         print('processing {0}...'.format(fileName))
         datum = shot.data(fileName)
-        confidenceIndex = datum.shotConfidence.value
+        confidenceIndex = datum.shot.confidence.value
         copyPath = COPY_PATHS[confidenceIndex]
         shutil.copy2(datum.filePath, copyPath)
         output.writeShotData(datum)

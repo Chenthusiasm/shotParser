@@ -16,14 +16,15 @@ class Handedness(enum.Enum):
 NUM_HANDEDNESS = len(Handedness)
 
 class ShotConfidence(enum.Enum):
-    Reset = 0
-    NoShot = 1
-    VeryLow = 2
-    Low = 3
-    Medium = 4
-    High = 5
-    VeryHigh = 6
+    NoShot = 0
+    VeryLow = 1
+    Low = 2
+    Medium = 3
+    High = 4
+    VeryHigh = 5
 NUM_SHOT_CONFIDENCE = len(ShotConfidence)
+
+SHOT_SEPARATION: int = 5
 
 
 # === GLOBAL CONSTANTS =========================================================
@@ -76,6 +77,12 @@ class vectorDatum:
         self.index: int = index
         
         
+class shotDatum:
+    def __init__(self, datum: vectorDatum, confidence: ShotConfidence = ShotConfidence.NoShot):
+        self.datum: vectorDatum = datum
+        self.confidence: ShotConfidence = confidence
+        
+        
 class data:
     class LineIndex(enum.Enum):
         Type = 0
@@ -99,13 +106,12 @@ class data:
         self.maxAccelX: vectorDatum
         self.maxAccelY: vectorDatum
         self.maxAccelZ: vectorDatum
-        self.shot: vectorDatum
-        self.shotConfidence: ShotConfidence = ShotConfidence.Reset
+        self.shot: shotDatum
+        self.altShot: shotDatum
         if self.fileName:
             self.__process()
             self.__analyze()
-            self.__findShot()
-            #self.__findAndScoreShot()
+            self.__processShot()
         
     def __process(self):
         if self.fileName:
@@ -180,7 +186,14 @@ class data:
         i: int = self.accel.index(v)
         self.maxAccelZ = vectorDatum(v, i)
         
-    def __findShot(self, offset: int = 0) -> int:
+    def __processShot(self):
+        self.shot = self.__findShot()
+        self.altShot = self.__findShot(self.shot.datum.index + SHOT_SEPARATION)
+        if self.shot.confidence != ShotConfidence.NoShot and self.altShot.confidence != ShotConfidence.NoShot:
+            if self.altShot.datum.v.magnitude > self.shot.datum.v.magnitude:
+                self.shot.confidence = ShotConfidence.VeryLow
+        
+    def __findShot(self, offset: int = 0) -> shotDatum:
         __SHOT_THRESHOLD: int = 10000
         __SCORE_LUT: typing.List[ShotConfidence] = (
             ShotConfidence.NoShot,
@@ -188,8 +201,9 @@ class data:
             ShotConfidence.High,
             ShotConfidence.VeryHigh,
         )
-        self.shotConfidence = ShotConfidence.NoShot
+        shotConfidence = ShotConfidence.NoShot
         shotIndex: int = 0
+        
         for i, v in enumerate(self.accel[offset:]):
             index: int = offset + i
             score: int = 0
@@ -203,34 +217,36 @@ class data:
                 score = len(__SCORE_LUT) - 1
             if score > 0:
                 shotIndex = index
-                self.shotConfidence = __SCORE_LUT[score]
-                self.shot = vectorDatum(self.accel[shotIndex], shotIndex)
+                shotConfidence = __SCORE_LUT[score]
                 break
-        return shotIndex
             
-    def __findAndScoreShot(self, offset: int = 0) -> int:
-        self.shotConfidence = ShotConfidence.NoShot
+        shot: shotDatum = shotDatum(vectorDatum(self.accel[shotIndex], shotIndex), shotConfidence)
+        return shot
+            
+    def __findShotNew(self, offset: int = 0) -> shotDatum:
+        shotConfidence: ShotConfidence = ShotConfidence.NoShot
         shotIndex: int = 0
         for i, v in enumerate(self.accel[offset:]):
             index: int = offset + i
-            if v.magnitude >= 40000 and self.shotConfidence.value < ShotConfidence.VeryHigh.value:
-                self.shotConfidence = ShotConfidence.VeryHigh
+            if v.magnitude >= 40000 and shotConfidence.value < ShotConfidence.VeryHigh.value:
+                shotConfidence = ShotConfidence.VeryHigh
                 shotIndex = index
-            elif v.magnitude >= 35000 and self.shotConfidence.value < ShotConfidence.High.value:
-                self.shotConfidence = ShotConfidence.High
+            elif v.magnitude >= 35000 and shotConfidence.value < ShotConfidence.High.value:
+                shotConfidence = ShotConfidence.High
                 shotIndex = index
-            elif v.magnitude >= 30000 and self.shotConfidence.value < ShotConfidence.Medium.value:
-                self.shotConfidence = ShotConfidence.Medium
+            elif v.magnitude >= 30000 and shotConfidence.value < ShotConfidence.Medium.value:
+                shotConfidence = ShotConfidence.Medium
                 shotIndex = index
-            elif v.magnitude >= 20000 and self.shotConfidence.value < ShotConfidence.Low.value:
+            elif v.magnitude >= 20000 and shotConfidence.value < ShotConfidence.Low.value:
                 NEIGHBOR_THRESHOLD = 12000
                 numSamples = len(self.accel)
                 if (index > 0) and (self.accel[i - 1].magnitude >= NEIGHBOR_THRESHOLD):
-                    self.shotConfidence = ShotConfidence.Low
+                    shotConfidence = ShotConfidence.Low
                 elif (index < (numSamples - 1)) and (self.accel[index + 1].magnitude >= NEIGHBOR_THRESHOLD):
-                    self.shotConfidence = ShotConfidence.Low
+                    shotConfidence = ShotConfidence.Low
                 else:
-                    self.shotConfidence = ShotConfidence.VeryLow
+                    shotConfidence = ShotConfidence.VeryLow
                 shotIndex = index
-        self.shot = vectorDatum(self.accel[shotIndex], shotIndex)
-        return shotIndex
+                
+        shot = shotDatum(vectorDatum(self.accel[shotIndex], shotIndex), shotConfidence)
+        return shot
