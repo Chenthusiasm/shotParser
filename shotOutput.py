@@ -29,7 +29,8 @@ class Row(enum.Enum):
     AbsMin = 4
     AbsMax = 5
     AbsAve = 6
-    Data = 7
+    HeaderRepeat = 7
+    Data = 8
     
 class VectorOffset(enum.Enum):
     Magnitude = 0
@@ -73,7 +74,7 @@ class xlsx:
         'Very High',
     )
     
-    __ROW_LABLES : typing.List[str] = (
+    __ROW_LABELS : typing.List[str] = (
         'NAME',
         'MIN',
         'MAX',
@@ -81,7 +82,9 @@ class xlsx:
         '|MIN|',
         '|MAX|',
         '|AVE|',
+        'NAME',
     )
+    __ROW_LABELS_LENGTH = len(__ROW_LABELS)
     
     __ROW_FORMULAS : typing.List[str] = (
         '',
@@ -91,7 +94,9 @@ class xlsx:
         '{{=MIN(ABS({0}${1}:{0}${2}))}}',
         '{{=MAX(ABS({0}${1}:{0}${2}))}}',
         '{{=AVERAGE(ABS({0}${1}:{0}${2}))}}',
+        '',
     )
+    __ROW_FORMULAS_LENGTH = len(__ROW_FORMULAS)
     
     __HEADER_LABELS : typing.List[str] = (
         '',
@@ -185,32 +190,14 @@ class xlsx:
             s = self.sheet(name, self.wb.add_worksheet(name))
             self.__initSheet(s)
             self.rankedSheets.append(s)
-            
-    def getXlsxColStr(col : int) -> str:
-        NUM_LETTERS  : int = len(string.ascii_uppercase)
-        pre : int = int(col / NUM_LETTERS)
-        post : int = int(col % NUM_LETTERS)
-        preChar : str = ''
-        if (pre > NUM_LETTERS):
-            pre = NUM_LETTERS
-        if (pre > 0):
-            preChar = string.ascii_uppercase[pre - 1]
-        postChar : str = string.ascii_uppercase[post]
-        return preChar + postChar
 
     def __initSheet(self, s : sheet):
         MAX_ROW = 2000
         for i, field in enumerate(self.__HEADER_LABELS):
-            s.ws.write(s.row, i, field)
-            '''
-            if (i > Col.Name.value):
-                for j in range(Row.Min.value, Row.Data.value):
-                    colStr : str = getXlsxColStr(i)
-                    s.ws.write_array_formula(j, i, j, i, self.__ROW_FORMULAS[j].format(colStr, self.__DATA_ROW_START, self.__DATA_ROW_END))
-            '''
-                
-        for i, field in enumerate(self.__ROW_LABLES):
-            s.ws.write(i, Col.Name.value, self.__ROW_LABLES[i])
+            s.ws.write(Row.Header.value, i, field)
+            s.ws.write(Row.HeaderRepeat.value, i, field)
+        for i, field in enumerate(self.__ROW_LABELS):
+            s.ws.write(i, Col.Name.value, self.__ROW_LABELS[i])
         # Set the column width.
         s.ws.set_column(Row.Header.value, Row.Header.value, self.__DEFAULT_COLUMN_WIDTH)
         # Freeze the header rows and columns.
@@ -251,12 +238,24 @@ class xlsx:
         self.__writeRange(ws, row, Col.AltShotRange.value, data.accel, data.altShot.datum.index)
         s.row += 1
         
+    def __getXlsxColStr(self, col : int) -> str:
+        NUM_LETTERS  : int = len(string.ascii_uppercase)
+        pre : int = int(col / NUM_LETTERS)
+        post : int = int(col % NUM_LETTERS)
+        preChar : str = ''
+        if (pre > NUM_LETTERS):
+            pre = NUM_LETTERS
+        if (pre > 0):
+            preChar = string.ascii_uppercase[pre - 1]
+        postChar : str = string.ascii_uppercase[post]
+        return preChar + postChar
+    
     def __writeStatistics(self, s : sheet):
         if s.row > Row.Data.value:
             for i, field in enumerate(self.__HEADER_LABELS):
                 if field:
-                    for j in range(Row.Min.value, Row.Data.value):
-                        colStr : str = getXlsxColStr(i)
+                    for j in range(Row.Min.value, Row.HeaderRepeat.value):
+                        colStr : str = self.__getXlsxColStr(i)
                         s.ws.write_array_formula(j, i, j, i, self.__ROW_FORMULAS[j].format(colStr, self.__DATA_ROW_START, s.row))
  
     
