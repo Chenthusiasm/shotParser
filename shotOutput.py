@@ -1,6 +1,7 @@
 # === IMPORTS ==================================================================
 
 import enum
+from re import X
 import shot
 import string
 import typing
@@ -32,7 +33,8 @@ VECTOR_OFFSET_LENGTH = len(VectorOffset)
     
 class Col(enum.Enum):
     Name = 0
-    V = Name + 1
+    Samples = Name + 1
+    V = Samples + 1
     VRange = V + VECTOR_OFFSET_LENGTH + 1
     X = VRange + RANGE_LENGTH + 1
     Y = X + VECTOR_OFFSET_LENGTH + 1
@@ -50,6 +52,8 @@ class Col(enum.Enum):
 class xlsx:
     __EXTENSION = '.xlsx'
     
+    __ALL_SHEET = 'ALL'
+    
     __DEFAULT_COLUMN_WIDTH = 20
     
     __DEFAULT_SHEET_NAMES = (
@@ -62,7 +66,8 @@ class xlsx:
     )
     
     __HEADERS = [
-        'NAME',
+        'Name',
+        'Samples',
         'V',
         'V[]',
         'V-x',
@@ -143,17 +148,22 @@ class xlsx:
     def __init__(self, fileName: str = DEFAULT_FILE_NAME, sheetNames: typing.List[str] = __DEFAULT_SHEET_NAMES):
         self.fileName: str = str(fileName)
         self.wb: xlsxwriter.Workbook = xlsxwriter.Workbook(self.fileName + self.__EXTENSION)
-        self.sheets: typing.List[self.sheet] = []
+        self.rankedSheets: typing.List[self.sheet] = []
+        self.allSheet: self.sheet = self.sheet(self.__ALL_SHEET, self.wb.add_worksheet(self.__ALL_SHEET))
+        self.__initSheet(self.allSheet)
         for name in sheetNames:
             s = self.sheet(name, self.wb.add_worksheet(name))
-            for i, field in enumerate(self.__HEADERS):
-                s.ws.write(s.row, i, field)
-            # Set the column width.
-            s.ws.set_column(Row.Header.value, Row.Header.value, self.__DEFAULT_COLUMN_WIDTH)
-            # Freeze the header rows and columns.
-            s.ws.freeze_panes(Row.Data.value, Col.V.value)
-            s.row += 1
-            self.sheets.append(s)
+            self.__initSheet(s)
+            self.rankedSheets.append(s)
+            
+    def __initSheet(self, s : sheet):
+        for i, field in enumerate(self.__HEADERS):
+            s.ws.write(s.row, i, field)
+        # Set the column width.
+        s.ws.set_column(Row.Header.value, Row.Header.value, self.__DEFAULT_COLUMN_WIDTH)
+        # Freeze the header rows and columns.
+        s.ws.freeze_panes(Row.Data.value, Col.Samples.value)
+        s.row += 1
             
     def __writeVectorDatum(self, ws : xlsxwriter.Workbook.worksheet_class, row : int, col :int, datum : shot.vectorDatum, ) -> int:
         ws.write(row, col + VectorOffset.Magnitude.value, datum.v.magnitude)
@@ -171,11 +181,11 @@ class xlsx:
                 ws.write(row, col + i, accel[j].magnitude)
         return col + RANGE_LENGTH
     
-    def writeShotData(self, data : shot.data):
-        s : self.sheet = self.sheets[data.shot.confidence.value]
-        row = s.row
+    def __writeShotData(self, s : sheet, data : shot.data):
+        row: int = s.row
         ws : xlsxwriter.Workbook.worksheet_class = s.ws
         ws.write(row, Col.Name.value, data.name)
+        ws.write(row, Col.Samples.value, len(data.accel))
         self.__writeVectorDatum(ws, row, Col.V.value, data.maxAccel)
         self.__writeRange(ws, row, Col.VRange.value, data.accel, data.maxAccel.index)
         self.__writeVectorDatum(ws, row, Col.X.value, data.maxAccelX)
@@ -188,6 +198,10 @@ class xlsx:
         ws.write(row, Col.AltShotConfidence.value, data.altShot.confidence.value)
         self.__writeRange(ws, row, Col.AltShotRange.value, data.accel, data.altShot.datum.index)
         s.row += 1
+    
+    def writeShotData(self, data : shot.data):
+        self.__writeShotData(self.rankedSheets[data.shot.confidence.value], data)
+        self.__writeShotData(self.allSheet, data)
         
     def finalize(self):
         self.wb.close()
