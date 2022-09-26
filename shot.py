@@ -10,13 +10,6 @@ import typing
 
 # === ENUM =====================================================================
 
-class LineIndex(enum.Enum):
-    Type = 0
-    X = 1
-    Y = 2
-    Z = 3
-NUM_LINE_INDICES = len(LineIndex)
-
 class Handedness(enum.Enum):
     Right = 0
     Left = 1
@@ -81,7 +74,14 @@ class vectorDatum:
         
         
 class data:
-    def __init__(self, fileName: str = ''):
+    class LineIndex(enum.Enum):
+        Type = 0
+        X = 1
+        Y = 2
+        Z = 3
+    NUM_LINE_INDICES = len(LineIndex)
+
+    def __init__(self, fileName: str):
         self.fileName: str = fileName
         self.filePath: str = ''
         self.name: str = ''
@@ -98,8 +98,12 @@ class data:
         self.maxAccelZ: vectorDatum
         self.shot: vectorDatum
         self.shotConfidence: ShotConfidence = ShotConfidence.Reset
+        if self.fileName:
+            self.__process()
+            self.__analyze()
+            self.__findAndScoreShot()
         
-    def process(self):
+    def __process(self):
         if self.fileName:
             self.name = self.fileName.replace('.csv', '')
             self.filePath = os.path.join(os.getcwd(), self.fileName)
@@ -110,10 +114,10 @@ class data:
             for line in readLines:
                 line = line.strip()
                 entries = line.split(',')
-                type = int(entries[LineIndex.Type.value])
-                v = vector(float(entries[LineIndex.X.value]),
-                           float(entries[LineIndex.Y.value]),
-                           float(entries[LineIndex.Z.value]))
+                type = int(entries[self.LineIndex.Type.value])
+                v = vector(float(entries[self.LineIndex.X.value]),
+                           float(entries[self.LineIndex.Y.value]),
+                           float(entries[self.LineIndex.Z.value]))
                 
                 if (type == TYPE_IMU_GRYO):
                     self.gyro.append(v)
@@ -124,14 +128,14 @@ class data:
                 elif (type == TYPE_CALIBRATION):
                     self.calibration = v
                 elif (type == TYPE_SETTINGS):
-                    n = int(entries[LineIndex.X.value])
+                    n = int(entries[self.LineIndex.X.value])
                     self.handedness = Handedness.Right
                     if (n == Handedness.Left.value):
                         self.handedness = Handedness.Left
                 elif (type == TYPE_HI_G_ACCEL_COMP):
-                    x : int = int(entries[LineIndex.X.value])
-                    y : int = int(entries[LineIndex.Y.value])
-                    z : int = int(entries[LineIndex.Z.value])
+                    x : int = int(entries[self.LineIndex.X.value])
+                    y : int = int(entries[self.LineIndex.Y.value])
+                    z : int = int(entries[self.LineIndex.Z.value])
                     HI_SHIFT = 8
                     LO_SHIFT = 0
                     MASK = 0xff
@@ -146,11 +150,7 @@ class data:
                     self.hiG.append(v0)
                     self.hiG.append(v1)
         
-    def processFile(self, fileName : str):
-        self.fileName = fileName
-        self.process()
-        
-    def analyze(self):
+    def __analyze(self):
         MAGNITUDE = 'magnitude'
         v: vector = max(self.gyro, key = operator.attrgetter(MAGNITUDE))
         i: int = self.gyro.index(v)
@@ -177,7 +177,7 @@ class data:
         self.maxAccelZ = vectorDatum(v, i)
         
         
-    def findAndScoreShot(self):
+    def __findAndScoreShot(self):
         self.shotConfidence = ShotConfidence.NoShot
         shotIndex: int = 0
         for i, v in enumerate(self.accel):

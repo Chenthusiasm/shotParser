@@ -207,9 +207,6 @@ def process2():
     for fileName in glob.glob('*.csv'):
         print('processing {0}...'.format(fileName))
         datum = shot.data(fileName)
-        datum.process()
-        datum.analyze()
-        datum.findAndScoreShot()
         confidenceIndex = datum.shotConfidence.value
         copyPath = COPY_PATHS[confidenceIndex]
         shutil.copy2(datum.filePath, copyPath)
