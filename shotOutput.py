@@ -7,6 +7,8 @@ import string
 import typing
 import xlsxwriter
 
+from shotParser import getXlsxColStr
+
 
 
 # === GLOBAL CONSTANTS =========================================================
@@ -21,7 +23,13 @@ RANGE_LENGTH = len(RANGE)
 
 class Row(enum.Enum):
     Header = 0
-    Data = 1
+    Min = 1
+    Max = 2
+    Ave = 3
+    AbsMin = 4
+    AbsMax = 5
+    AbsAve = 6
+    Data = 7
     
 class VectorOffset(enum.Enum):
     Magnitude = 0
@@ -65,8 +73,28 @@ class xlsx:
         'Very High',
     )
     
-    __HEADERS = [
-        'Name',
+    __ROW_LABLES : typing.List[str] = (
+        'NAME',
+        'MIN',
+        'MAX',
+        'AVE',
+        '|MIN|',
+        '|MAX|',
+        '|AVE|',
+    )
+    
+    __ROW_FORMULAS : typing.List[str] = (
+        '',
+        '{{=MIN({0}${1}:{0}${2})}}',
+        '{{=MAX({0}${1}:{0}${2})}}',
+        '{{=AVERAGE({0}${1}:{0}${2})}}',
+        '{{=MIN(ABS({0}${1}:{0}${2}))}}',
+        '{{=MAX(ABS({0}${1}:{0}${2}))}}',
+        '{{=AVERAGE(ABS({0}${1}:{0}${2}))}}',
+    )
+    
+    __HEADER_LABELS : typing.List[str] = (
+        '',
         'Samples',
         'V',
         'V[]',
@@ -135,9 +163,11 @@ class xlsx:
         'Alt[+2]',
         'Alt[+3]',
         'Alt[+4]',
-        
-    ]
-    __HEADERS_LENGTH = len(__HEADERS)
+    )
+    __HEADER_LABELS_LENGTH = len(__HEADER_LABELS)
+    
+    __DATA_ROW_START = Row.Data.value + 1
+    __DATA_ROW_END = 2000
         
     class sheet:
         def __init__(self, name: str, ws : xlsxwriter.Workbook.worksheet_class):
@@ -156,14 +186,36 @@ class xlsx:
             self.__initSheet(s)
             self.rankedSheets.append(s)
             
+    def getXlsxColStr(col : int) -> str:
+        NUM_LETTERS  : int = len(string.ascii_uppercase)
+        pre : int = int(col / NUM_LETTERS)
+        post : int = int(col % NUM_LETTERS)
+        preChar : str = ''
+        if (pre > NUM_LETTERS):
+            pre = NUM_LETTERS
+        if (pre > 0):
+            preChar = string.ascii_uppercase[pre - 1]
+        postChar : str = string.ascii_uppercase[post]
+        return preChar + postChar
+
     def __initSheet(self, s : sheet):
-        for i, field in enumerate(self.__HEADERS):
+        MAX_ROW = 2000
+        for i, field in enumerate(self.__HEADER_LABELS):
             s.ws.write(s.row, i, field)
+            '''
+            if (i > Col.Name.value):
+                for j in range(Row.Min.value, Row.Data.value):
+                    colStr : str = getXlsxColStr(i)
+                    s.ws.write_array_formula(j, i, j, i, self.__ROW_FORMULAS[j].format(colStr, self.__DATA_ROW_START, self.__DATA_ROW_END))
+            '''
+                
+        for i, field in enumerate(self.__ROW_LABLES):
+            s.ws.write(i, Col.Name.value, self.__ROW_LABLES[i])
         # Set the column width.
         s.ws.set_column(Row.Header.value, Row.Header.value, self.__DEFAULT_COLUMN_WIDTH)
         # Freeze the header rows and columns.
         s.ws.freeze_panes(Row.Data.value, Col.Samples.value)
-        s.row += 1
+        s.row = Row.Data.value
             
     def __writeVectorDatum(self, ws : xlsxwriter.Workbook.worksheet_class, row : int, col :int, datum : shot.vectorDatum, ) -> int:
         ws.write(row, col + VectorOffset.Magnitude.value, datum.v.magnitude)
@@ -198,10 +250,22 @@ class xlsx:
         ws.write(row, Col.AltShotConfidence.value, data.altShot.confidence.value)
         self.__writeRange(ws, row, Col.AltShotRange.value, data.accel, data.altShot.datum.index)
         s.row += 1
+        
+    def __writeStatistics(self, s : sheet):
+        if s.row > Row.Data.value:
+            for i, field in enumerate(self.__HEADER_LABELS):
+                if field:
+                    for j in range(Row.Min.value, Row.Data.value):
+                        colStr : str = getXlsxColStr(i)
+                        s.ws.write_array_formula(j, i, j, i, self.__ROW_FORMULAS[j].format(colStr, self.__DATA_ROW_START, s.row))
+ 
     
     def writeShotData(self, data : shot.data):
         self.__writeShotData(self.rankedSheets[data.shot.confidence.value], data)
         self.__writeShotData(self.allSheet, data)
         
     def finalize(self):
+        self.__writeStatistics(self.allSheet)
+        for s in self.rankedSheets:
+            self.__writeStatistics(s)
         self.wb.close()
