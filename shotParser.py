@@ -36,6 +36,10 @@ COPY_PATHS = (
     os.path.join(os.getcwd(), SHOT_CONFIDENCE[shot.ShotConfidence.VeryHigh.value]),
 )
 
+SPLIT_FOLDER = '_SPLIT'
+
+SPLIT_PATH = os.path.join(os.getcwd(), SPLIT_FOLDER)
+
 
 # === ENUM =====================================================================
 
@@ -161,25 +165,62 @@ def writeData(ws : xlsxwriter.workbook.Worksheet, n : int, v : shot.vector):
     ws.write(row, DATA_HEADER_TABLE[7][TableEntry.Offset.value], v.zG)
     ws.write(row, DATA_HEADER_TABLE[8][TableEntry.Offset.value], v.magnitudeG)
     
+    
+def __splitAccel(data : shot.data):
+    __DRAW_NAME = 'draw'
+    __SHOT_NAME = 'shot'
+    __SOURCE_NAME = 'source'
+    __F = 52.0
+    if data.altShot.confidence != shot.ShotConfidence.NoShot and data.altShot.datum.v.magnitude > data.shot.datum.v.magnitude:
+        shotIndex : int = data.shot.datum.index
+        altIndex : int = data.altShot.datum.index
+        drawEnd : int = round((shotIndex + altIndex) / 2)
+        print('{0}, {1}, {2}, {3}'.format(data.name, shotIndex / __F, drawEnd / __F, altIndex / __F))
+        sourcePath : str = os.path.join(SPLIT_PATH, __SOURCE_NAME)
+        try:
+            os.makedirs(sourcePath)
+        except:
+            pass
+        shutil.copy2(data.filePath, sourcePath)
+        drawName : str = '{0}_{1}'.format(data.name, 'draw')
+        drawPath : str = os.path.join(SPLIT_PATH, __DRAW_NAME)
+        try:
+            os.makedirs(drawPath)
+        except OSError as error:
+            pass
+        drawLog : shotOutput.log = shotOutput.log(drawName, drawPath)
+        drawLog.logAccel(data, 0, drawEnd)
+        drawLog.finalize()
+        shotName : str = '{0}_{1}'.format(data.name, 'shot')
+        shotPath : str = os.path.join(SPLIT_PATH, __SHOT_NAME)
+        try:
+            os.makedirs(shotPath)
+        except OSError as error:
+            pass
+        shotLog : shotOutput.log = shotOutput.log(shotName, shotPath)
+        shotLog.logAccel(data, drawEnd, len(data.accel))
+        shotLog.finalize()
+        
+        
 def process():
     output = shotOutput.xlsx()
     for path in COPY_PATHS:
         try:
             os.makedirs(path)
         except OSError as error:
-            print('{0} already exists'.format(path))
-    data = []
+            pass
     for fileName in glob.glob('*.csv'):
-        print('processing {0}...'.format(fileName))
-        datum = shot.data(fileName)
+        #print('processing {0}...'.format(fileName))
+        datum : shot.data = shot.data(fileName)
         confidenceIndex = datum.shot.confidence.value
         copyPath = COPY_PATHS[confidenceIndex]
         shutil.copy2(datum.filePath, copyPath)
         output.writeShotData(datum)
-        data.append(datum)
+        #__splitAccel(datum)
     #data.sort(key=operator.attrgetter('maxAccel.magnitude'))
     #data.sort(key=operator.attrgetter('shotMagnitude'))
     output.finalize()
+    
     
 def processTest():
     __LUT = ( 'red', 'green', 'blue', 'cyan', 'magenta', 'yellow', 'black', 'white' )

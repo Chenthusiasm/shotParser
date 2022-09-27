@@ -24,7 +24,7 @@ class ShotConfidence(enum.Enum):
     VeryHigh = 5
 NUM_SHOT_CONFIDENCE = len(ShotConfidence)
 
-SHOT_SEPARATION: int = 5
+SHOT_SEPARATION: int = 30
 
 
 # === GLOBAL CONSTANTS =========================================================
@@ -69,6 +69,24 @@ class vector:
         
     def getVectorSum(self) -> int:
         return abs(self.x) + abs(self.y) + abs(self.z)
+
+    def gyroEntryString(self) -> str:
+        return '{0}, {1}, {2}, {3}'.format(int(TYPE_IMU_GRYO), int(self.x), int(self.y), int(self.z))
+        
+    def accelEntryString(self) -> str:
+        return '{0}, {1}, {2}, {3}'.format(int(TYPE_IMU_ACCEL), int(self.x), int(self.y), int(self.z))
+    
+    def hiGEntryString(self) -> str:
+        return '{0}, {1}, {2}, {3}'.format(int(TYPE_HI_G_ACCEL), int(self.x), int(self.y), int(self.z))
+        
+    def calibEntryString(self) -> str:
+        return '{0}, {1}, {2}, {3}'.format(int(TYPE_CALIBRATION), float(self.x), float(self.y), float(self.z))
+        
+    def rightHandEntryString() -> str:
+        return '{0}, {1}, {2}, {3}'.format(int(TYPE_SETTINGS), int(Handedness.Right.value), int(0), int(0))
+    
+    def leftHandEntryString() -> str:
+        return '{0}, {1}, {2}, {3}'.format(int(TYPE_SETTINGS), int(Handedness.Left.value), int(0), int(0))
     
     
 class vectorDatum:
@@ -98,7 +116,7 @@ class data:
         self.gyro: typing.List[vector] = []
         self.accel: typing.List[vector] = []
         self.hiG: typing.List[vector] = []
-        self.calibration: vector
+        self.calibration: vector = vector(0, 0, 0)
         self.handedness: Handedness = Handedness.Right
         self.maxGyro: vectorDatum
         self.maxAccel: vectorDatum
@@ -121,6 +139,7 @@ class data:
                 readLines = file.readlines()
             file.close()
             self.numIMU = 0
+            processedCalibration : bool = False
             for line in readLines:
                 line = line.strip()
                 entries = line.split(',')
@@ -137,6 +156,7 @@ class data:
                     self.hiG.append(v)
                 elif (type == TYPE_CALIBRATION):
                     self.calibration = v
+                    processedCalibration = True
                 elif (type == TYPE_SETTINGS):
                     n = int(entries[self.LineIndex.X.value])
                     self.handedness = Handedness.Right
@@ -159,6 +179,11 @@ class data:
                         (z >> HI_SHIFT) & MASK)
                     self.hiG.append(v0)
                     self.hiG.append(v1)
+            if not processedCalibration:
+                if self.handedness is Handedness.Left:
+                    self.calibration = vector(0.280273, -0.979248, 0.011719)
+                else:
+                    self.calibration = vector(-0.280273, -0.979248, -0.011719)
         
     def __analyze(self):
         MAGNITUDE = 'magnitude'
@@ -187,8 +212,8 @@ class data:
         self.maxAccelZ = vectorDatum(v, i)
         
     def __processShot(self):
-        self.shot = self.__findShotNew()
-        self.altShot = self.__findShotNew(self.shot.datum.index + SHOT_SEPARATION)
+        self.shot = self.__findShot()
+        self.altShot = self.__findShot(self.shot.datum.index + SHOT_SEPARATION)
         if self.shot.confidence != ShotConfidence.NoShot and self.altShot.confidence != ShotConfidence.NoShot:
             if self.altShot.datum.v.magnitude > self.shot.datum.v.magnitude:
                 self.shot.confidence = ShotConfidence.VeryLow
@@ -254,3 +279,6 @@ class data:
             prevMagnitude = v.magnitude
         shot : shotDatum = shotDatum(vectorDatum(self.accel[shotIndex], shotIndex), shotConfidence)
         return shot
+    
+    def __writeEntryToFile():
+        print('do something')

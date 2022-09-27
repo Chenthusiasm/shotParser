@@ -1,14 +1,12 @@
 # === IMPORTS ==================================================================
 
 import enum
-from re import X
+from io import FileIO
+import os
 import shot
 import string
 import typing
 import xlsxwriter
-
-from shotParser import getXlsxColStr
-
 
 
 # === GLOBAL CONSTANTS =========================================================
@@ -268,3 +266,33 @@ class xlsx:
         for s in self.rankedSheets:
             self.__writeStatistics(s)
         self.wb.close()
+        
+        
+class log:
+    __EXTENSION : str = 'csv'
+    __OPEN_MODE : str = 'w'
+    
+    def __init__(self, name : str, folderPath : str):
+        self.name : str = name
+        self.folderPath : str = folderPath
+        self.file : FileIO = open(os.path.join(self.folderPath, '{0}.{1}'.format(self.name, self.__EXTENSION)), self.__OPEN_MODE)
+        
+    def logAccel(self, data : shot.data, start : int, end : int):
+        for s in data.accel[start:end]:
+            self.file.write('{0}\n'.format(s.accelEntryString()))
+        gyroEnd = end
+        if end == len(data.accel):
+            gyroEnd =  len(data.gyro)
+        for s in data.gyro[start:gyroEnd]:
+            self.file.write('{0}\n'.format(s.gyroEntryString()))
+        for s in data.hiG:
+            self.file.write('{0}\n'.format(s.hiGEntryString()))
+        self.file.write('{0}\n'.format(data.calibration.calibEntryString()))
+        if data.handedness == shot.Handedness.Left:
+            self.file.write('{0}\n'.format(shot.vector.leftHandEntryString()))
+        else:
+            self.file.write('{0}\n'.format(shot.vector.rightHandEntryString()))
+        
+    def finalize(self):
+        self.file.close()
+    
