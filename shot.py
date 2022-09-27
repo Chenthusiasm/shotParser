@@ -212,8 +212,8 @@ class data:
         self.maxAccelZ = vectorDatum(v, i)
         
     def __processShot(self):
-        self.shot = self.__findShot()
-        self.altShot = self.__findShot(self.shot.datum.index + SHOT_SEPARATION)
+        self.shot = self.__findShotNew()
+        self.altShot = self.__findShotNew(self.shot.datum.index + SHOT_SEPARATION)
         if self.shot.confidence != ShotConfidence.NoShot and self.altShot.confidence != ShotConfidence.NoShot:
             if self.altShot.datum.v.magnitude > self.shot.datum.v.magnitude:
                 self.shot.confidence = ShotConfidence.VeryLow
