@@ -187,8 +187,8 @@ class data:
         self.maxAccelZ = vectorDatum(v, i)
         
     def __processShot(self):
-        self.shot = self.__findShot()
-        self.altShot = self.__findShot(self.shot.datum.index + SHOT_SEPARATION)
+        self.shot = self.__findShotNew()
+        self.altShot = self.__findShotNew(self.shot.datum.index + SHOT_SEPARATION)
         if self.shot.confidence != ShotConfidence.NoShot and self.altShot.confidence != ShotConfidence.NoShot:
             if self.altShot.datum.v.magnitude > self.shot.datum.v.magnitude:
                 self.shot.confidence = ShotConfidence.VeryLow
@@ -220,33 +220,37 @@ class data:
                 shotConfidence = __SCORE_LUT[score]
                 break
             
-        shot: shotDatum = shotDatum(vectorDatum(self.accel[shotIndex], shotIndex), shotConfidence)
+        shot : shotDatum = shotDatum(vectorDatum(self.accel[shotIndex], shotIndex), shotConfidence)
         return shot
             
     def __findShotNew(self, offset: int = 0) -> shotDatum:
-        shotConfidence: ShotConfidence = ShotConfidence.NoShot
-        shotIndex: int = 0
+        shotConfidence : ShotConfidence = ShotConfidence.NoShot
+        shotIndex : int = 0
+        prevMagnitude : int = 0
+        if offset > 0 and offset < len(self.accel):
+            prevMagnitude = self.accel[offset - 1].magnitude
         for i, v in enumerate(self.accel[offset:]):
             index: int = offset + i
-            if v.magnitude >= 40000 and shotConfidence.value < ShotConfidence.VeryHigh.value:
+            if v.magnitude >= 40000:
                 shotConfidence = ShotConfidence.VeryHigh
                 shotIndex = index
-            elif v.magnitude >= 35000 and shotConfidence.value < ShotConfidence.High.value:
+                break
+            elif v.magnitude >= 35000:
                 shotConfidence = ShotConfidence.High
                 shotIndex = index
-            elif v.magnitude >= 30000 and shotConfidence.value < ShotConfidence.Medium.value:
+                break
+            elif v.magnitude >= 30000:
                 shotConfidence = ShotConfidence.Medium
                 shotIndex = index
-            elif v.magnitude >= 20000 and shotConfidence.value < ShotConfidence.Low.value:
-                NEIGHBOR_THRESHOLD = 12000
-                numSamples = len(self.accel)
-                if (index > 0) and (self.accel[i - 1].magnitude >= NEIGHBOR_THRESHOLD):
-                    shotConfidence = ShotConfidence.Low
-                elif (index < (numSamples - 1)) and (self.accel[index + 1].magnitude >= NEIGHBOR_THRESHOLD):
-                    shotConfidence = ShotConfidence.Low
-                else:
-                    shotConfidence = ShotConfidence.VeryLow
+                break
+            elif v.magnitude >= 25000:
+                shotConfidence = ShotConfidence.Low
                 shotIndex = index
-                
-        shot = shotDatum(vectorDatum(self.accel[shotIndex], shotIndex), shotConfidence)
+                break
+            elif (prevMagnitude >= 18000 or v.magnitude >= 18000) and (v.magnitude + prevMagnitude) >= 32000:
+                shotConfidence = ShotConfidence.VeryLow
+                shotIndex = index
+                break
+            prevMagnitude = v.magnitude
+        shot : shotDatum = shotDatum(vectorDatum(self.accel[shotIndex], shotIndex), shotConfidence)
         return shot
