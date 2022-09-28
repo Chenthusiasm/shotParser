@@ -249,6 +249,9 @@ class data:
         return shot
             
     def __findShotNew(self, offset: int = 0) -> shotDatum:
+        DETECT_THRESHOLD : int = 22000
+        DETECT_PAIR_ADD_THRESHOLD : int = 29000
+        DETECT_PAIR_STRONG_THRESHOLD : int = 17000
         shotConfidence : ShotConfidence = ShotConfidence.NoShot
         shotIndex : int = 0
         prevMagnitude : int = 0
@@ -268,11 +271,11 @@ class data:
                 shotConfidence = ShotConfidence.Medium
                 shotIndex = index
                 break
-            elif v.magnitude >= 25000:
+            elif v.magnitude >= DETECT_THRESHOLD:
                 shotConfidence = ShotConfidence.Low
                 shotIndex = index
                 break
-            elif (prevMagnitude >= 18000 or v.magnitude >= 18000) and (v.magnitude + prevMagnitude) >= 32000:
+            elif (prevMagnitude >= DETECT_PAIR_STRONG_THRESHOLD or v.magnitude >= DETECT_PAIR_STRONG_THRESHOLD) and (v.magnitude + prevMagnitude) >= DETECT_PAIR_ADD_THRESHOLD:
                 shotConfidence = ShotConfidence.VeryLow
                 shotIndex = index
                 break
