@@ -13,6 +13,13 @@ import xlsxwriter
 
 # === GLOBAL CONSTANTS =========================================================
 
+_VERSION_MAJOR : int = 1
+_VERSION_MINOR : int = 0
+_VERSION_UPDATE : int = 1
+
+_VERSION : str = '{0}.{1}.{2}'.format(_VERSION_MAJOR, _VERSION_MINOR, _VERSION_UPDATE)
+
+
 MAG_SPAN_VALUES = (-4, -3, -2, -1, 0, 1, 2, 3, 4)
 MAX_SPAN_SIZE = len(MAG_SPAN_VALUES)
 MAX_COL = 1000
@@ -226,12 +233,22 @@ def processTest():
     __LUT = ( 'red', 'green', 'blue', 'cyan', 'magenta', 'yellow', 'black', 'white' )
     for i, color in enumerate(__LUT[2:]):
         print('[{0}] = {1}'.format(i, color))
+        
+def processShotDetect():
+    _FILE_SEARCH_PATTERN : str = './**/*.csv'
+    print('{0}()'.format(processShotDetect.__name__))
+    for fileName in glob.glob(_FILE_SEARCH_PATTERN, recursive=True):
+        print('processing {0}...'.format(fileName))
+        pass
+    pass
     
 
 # === MAIN =====================================================================
 
 if __name__ == "__main__":
-    process()
+    print('{0} version {1}'.format(os.path.basename(__file__), _VERSION))
+    #process()
     #processTest()
+    processShotDetect()
 else:
     print("ERROR: shotParser needs to be the calling python module!")
