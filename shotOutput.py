@@ -287,7 +287,7 @@ class log:
             self.file.write('{0}\n'.format(s.gyroEntryString()))
         for s in data.hiG:
             self.file.write('{0}\n'.format(s.hiGEntryString()))
-        self.file.write('{0}\n'.format(data.calibration.calibEntryString()))
+        self.file.write('{0}\n'.format(data.calibrationAccel.calibEntryString()))
         if data.handedness == shot.Handedness.Left:
             self.file.write('{0}\n'.format(shot.vector.leftHandEntryString()))
         else:

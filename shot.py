@@ -34,9 +34,14 @@ LSB_TO_G_DIVISOR = 4096
 TYPE_IMU_GRYO = 1
 TYPE_IMU_ACCEL = 2
 TYPE_HI_G_ACCEL = 3
-TYPE_CALIBRATION = 4
+TYPE_CAL_ACCEL = 4
 TYPE_SETTINGS = 5
+TYPE_CAL_GYRO = 6
 TYPE_HI_G_ACCEL_COMP = 7
+TYPE_DEBUG0 = 15
+
+TYPE_DEBUG_INDEX = 0
+TYPE_INVALID_INDEX = 8
 
 
 # === HELPER FUNCTIONS =========================================================
@@ -80,7 +85,7 @@ class vector:
         return '{0}, {1}, {2}, {3}'.format(int(TYPE_HI_G_ACCEL), int(self.x), int(self.y), int(self.z))
         
     def calibEntryString(self) -> str:
-        return '{0}, {1}, {2}, {3}'.format(int(TYPE_CALIBRATION), float(self.x), float(self.y), float(self.z))
+        return '{0}, {1}, {2}, {3}'.format(int(TYPE_CAL_ACCEL), float(self.x), float(self.y), float(self.z))
         
     def rightHandEntryString() -> str:
         return '{0}, {1}, {2}, {3}'.format(int(TYPE_SETTINGS), int(Handedness.Right.value), int(0), int(0))
@@ -116,7 +121,8 @@ class data:
         self.gyro: typing.List[vector] = []
         self.accel: typing.List[vector] = []
         self.hiG: typing.List[vector] = []
-        self.calibration: vector = vector(0, 0, 0)
+        self.calibrationAccel: vector = vector(0, 0, 0)
+        self.calibrationGyro: vector = vector(0, 0, 0)
         self.handedness: Handedness = Handedness.Right
         self.maxGyro: vectorDatum
         self.maxAccel: vectorDatum
@@ -126,6 +132,7 @@ class data:
         self.maxAccelZ: vectorDatum
         self.shot: shotDatum
         self.altShot: shotDatum
+        self.counts: typing.List[int] = [ 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
         if self.fileName:
             self.__process()
             self.__analyze()
@@ -139,7 +146,8 @@ class data:
                 readLines = file.readlines()
             file.close()
             self.numIMU = 0
-            processedCalibration : bool = False
+            processedCalibrationAccel : bool = False
+            processedCalibrationGyro : bool = False
             for line in readLines:
                 line = line.strip()
                 entries = line.split(',')
@@ -150,18 +158,27 @@ class data:
                 
                 if (type == TYPE_IMU_GRYO):
                     self.gyro.append(v)
+                    self.counts[type] += 1
                 elif (type == TYPE_IMU_ACCEL):
                     self.accel.append(v)
+                    self.counts[type] += 1
                 elif (type == TYPE_HI_G_ACCEL):
                     self.hiG.append(v)
-                elif (type == TYPE_CALIBRATION):
-                    self.calibration = v
-                    processedCalibration = True
+                    self.counts[type] += 1
+                elif (type == TYPE_CAL_ACCEL):
+                    self.calibrationAccel = v
+                    processedCalibrationAccel = True
+                    self.counts[type] += 1
                 elif (type == TYPE_SETTINGS):
                     n = int(entries[self.LineIndex.X.value])
                     self.handedness = Handedness.Right
                     if (n == Handedness.Left.value):
                         self.handedness = Handedness.Left
+                    self.counts[type] += 1
+                elif (type == TYPE_CAL_GYRO):
+                    self.calibrationGyro = v
+                    processedCalibrationGyro = True
+                    self.counts[type] += 1
                 elif (type == TYPE_HI_G_ACCEL_COMP):
                     x : int = int(entries[self.LineIndex.X.value])
                     y : int = int(entries[self.LineIndex.Y.value])
@@ -179,11 +196,16 @@ class data:
                         (z >> HI_SHIFT) & MASK)
                     self.hiG.append(v0)
                     self.hiG.append(v1)
-            if not processedCalibration:
-                if self.handedness is Handedness.Left:
-                    self.calibration = vector(0.280273, -0.979248, 0.011719)
+                    self.counts[type] += 1
+                elif (type == TYPE_DEBUG0):
+                    self.counts[TYPE_DEBUG_INDEX] += 1
                 else:
-                    self.calibration = vector(-0.280273, -0.979248, -0.011719)
+                    self.counts[TYPE_INVALID_INDEX] += 1
+            if not processedCalibrationAccel:
+                if self.handedness is Handedness.Left:
+                    self.calibrationAccel = vector(0.280273, -0.979248, 0.011719)
+                else:
+                    self.calibrationAccel = vector(-0.280273, -0.979248, -0.011719)
         
     def __analyze(self):
         MAGNITUDE = 'magnitude'

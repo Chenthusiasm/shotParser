@@ -6,6 +6,7 @@ import operator
 import os
 import shot
 import shotOutput
+import shotVerifyOutput
 import shutil
 import string
 import typing
@@ -15,7 +16,7 @@ import xlsxwriter
 
 _VERSION_MAJOR : int = 1
 _VERSION_MINOR : int = 0
-_VERSION_UPDATE : int = 1
+_VERSION_UPDATE : int = 2
 
 _VERSION : str = '{0}.{1}.{2}'.format(_VERSION_MAJOR, _VERSION_MINOR, _VERSION_UPDATE)
 
@@ -241,6 +242,18 @@ def processShotDetect():
         print('processing {0}...'.format(fileName))
         pass
     pass
+
+def processShotVerify():
+    _FILE_SEARCH_PATTERN : str = './**/*.csv'
+    _OUTPUT : str = 'shotVerify'
+    print('{0}()'.format(processShotDetect.__name__))
+    xlsx : shotVerifyOutput.shotVerifyXlsx = shotVerifyOutput.shotVerifyXlsx(_OUTPUT)
+    for fileName in glob.glob(_FILE_SEARCH_PATTERN, recursive=True):
+        datum : shot.data = shot.data(fileName)
+        xlsx.writeShotData(datum)
+        
+    xlsx.finalize()
+    pass
     
 
 # === MAIN =====================================================================
@@ -249,6 +262,6 @@ if __name__ == "__main__":
     print('{0} version {1}'.format(os.path.basename(__file__), _VERSION))
     #process()
     #processTest()
-    processShotDetect()
+    processShotVerify()
 else:
     print("ERROR: shotParser needs to be the calling python module!")
