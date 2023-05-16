@@ -248,9 +248,13 @@ def processShotVerify():
     _OUTPUT : str = 'shotVerify'
     print('{0}()'.format(processShotDetect.__name__))
     xlsx : shotVerifyOutput.shotVerifyXlsx = shotVerifyOutput.shotVerifyXlsx(_OUTPUT)
+    count : int = 0
     for fileName in glob.glob(_FILE_SEARCH_PATTERN, recursive=True):
         datum : shot.data = shot.data(fileName)
         xlsx.writeShotData(datum)
+        if count % 100 == 0:
+            print('[{0}]: processed {1}'.format(count, fileName))
+        count += 1
         
     xlsx.finalize()
     pass

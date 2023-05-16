@@ -31,6 +31,7 @@ SHOT_SEPARATION: int = 30
 
 LSB_TO_G_DIVISOR = 4096
 
+TYPE_ZERO = 0
 TYPE_IMU_GRYO = 1
 TYPE_IMU_ACCEL = 2
 TYPE_HI_G_ACCEL = 3
@@ -40,8 +41,8 @@ TYPE_CAL_GYRO = 6
 TYPE_HI_G_ACCEL_COMP = 7
 TYPE_DEBUG0 = 15
 
-TYPE_DEBUG_INDEX = 0
-TYPE_INVALID_INDEX = 8
+TYPE_DEBUG_INDEX = 8
+TYPE_INVALID_INDEX = 9
 
 
 # === HELPER FUNCTIONS =========================================================
@@ -132,11 +133,11 @@ class data:
         self.maxAccelZ: vectorDatum
         self.shot: shotDatum
         self.altShot: shotDatum
-        self.counts: typing.List[int] = [ 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
+        self.counts: typing.List[int] = [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
         if self.fileName:
             self.__process()
-            self.__analyze()
-            self.__processShot()
+            #self.__analyze()
+            #self.__processShot()
         
     def __process(self):
         if self.fileName:
@@ -156,7 +157,9 @@ class data:
                            float(entries[self.LineIndex.Y.value]),
                            float(entries[self.LineIndex.Z.value]))
                 
-                if (type == TYPE_IMU_GRYO):
+                if (type == TYPE_ZERO):
+                    self.counts[type] += 1
+                elif (type == TYPE_IMU_GRYO):
                     self.gyro.append(v)
                     self.counts[type] += 1
                 elif (type == TYPE_IMU_ACCEL):
